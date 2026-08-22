@@ -6,12 +6,33 @@ from core import models
 register = template.Library()
 
 
+# @register.simple_tag()
+# def user_has_role(request, role, staff_override=True):
+#     if not request.user.is_authenticated:
+#         return None
+#     return request.user.check_role(request.journal, role, staff_override=staff_override)
+
+
 @register.simple_tag()
 def user_has_role(request, role, staff_override=True):
+
     if not request.user.is_authenticated:
         return None
-    return request.user.check_role(request.journal, role, staff_override=staff_override)
 
+    # Active Role takes precedence for role-sensitive UI.
+    active_role_slug = getattr(request, "active_role_slug", None)
+
+    if active_role_slug:
+        if staff_override and request.user.is_staff:
+            return True
+
+        return active_role_slug == role
+
+    return request.user.check_role(
+        request.journal,
+        role,
+        staff_override=staff_override,
+    )
 
 @register.simple_tag
 def user_roles(journal, user, slugs=False):
