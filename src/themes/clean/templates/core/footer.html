@@ -1,20 +1,137 @@
 {% load svg from press_url %}
 {% load svg_or_image from press_url %}
 {% load i18n %}
-<div class="row">
-    <div class="col-md-2">
-        {% if request.journal.press_image_override %}
-            {% get_alt_text file_path=request.journal.press_image_override default=request.press.name as press_alt %}
-            {% svg_or_image request.journal.press_image_override "img-fluid" alt_text=press_alt %}
-        {% else %}
-            {% svg request.press_cover %}
-        {% endif %}
-    </div>
-    <div class="col-md-10">
-            {% if request.journal %}
-                {% include "elements/journal_footer.html" %}
+
+{% if request.journal %}
+    {% include "elements/journal_footer.html" %}
+{% else %}
+    <div class="row">
+        <div class="col-md-2">
+            {% if request.journal.press_image_override %}
+                {% get_alt_text file_path=request.journal.press_image_override default=request.press.name as press_alt %}
+                {% svg_or_image request.journal.press_image_override "img-fluid" alt_text=press_alt %}
             {% else %}
-                {% include "elements/press_footer.html" %}
+                {% svg request.press_cover %}
             {% endif %}
+        </div>
+        <div class="col-md-10">
+            {% include "elements/press_footer.html" %}
+        </div>
     </div>
-</div>
+{% endif %}
+
+{% if request.journal %}
+<style>
+.site-footer:has(.ua-site-footer) {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+.ua-site-footer {
+    background: #5d6872;
+    color: #fff;
+    width: 100%;
+    margin: 0;
+    padding: 42px 48px 24px;
+    border: 0;
+}
+.ua-footer-inner { max-width: 1180px; margin: 0 auto; }
+.ua-footer-grid {
+    display: grid;
+    grid-template-columns: 1.35fr .85fr .9fr 1.1fr;
+    gap: 42px;
+    align-items: start;
+}
+.ua-footer-brand img,
+.ua-footer-brand svg {
+    display: block;
+    max-width: 145px;
+    max-height: 110px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+.ua-footer-tagline {
+    margin: 12px 0 0;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #f0e6cf;
+}
+.ua-footer-title {
+    margin: 0 0 12px;
+    font-size: 12px;
+    line-height: 1.2;
+    font-weight: 800;
+    color: #f4dfad;
+}
+.ua-footer-links { list-style: none; margin: 0; padding: 0; }
+.ua-footer-links li { margin: 0 0 7px; }
+.ua-footer-links a {
+    color: #fff !important;
+    font-size: 10.5px;
+    line-height: 1.35;
+    text-decoration: none !important;
+}
+.ua-footer-links a:hover { color: #f4dfad !important; }
+.ua-footer-contact {
+    font-size: 10.5px;
+    line-height: 1.65;
+    color: #fff;
+}
+.ua-footer-contact a { color:#fff !important; text-decoration:none; }
+.ua-footer-contact a:hover { color:#f4dfad !important; }
+.ua-footer-contact-label {
+    display:block;
+    margin-top: 6px;
+    color:#f4dfad;
+    font-size:9px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+}
+.ua-footer-contact-col p { margin:0 0 5px; }
+.ua-footer-contact-col br + br { display:none; }
+.ua-footer-divider {
+    height:1px;
+    margin:28px 0 12px;
+    background:rgba(255,255,255,.7);
+}
+.ua-footer-bottom {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    color:#fff;
+    font-size:9.5px;
+}
+.ua-footer-legal {
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+.ua-footer-legal a { color:#fff !important; text-decoration:none; }
+.ua-footer-legal a:hover { color:#f4dfad !important; }
+.ua-footer-language select {
+    background:transparent;
+    color:#fff;
+    border:1px solid rgba(255,255,255,.45);
+    border-radius:3px;
+    padding:3px 6px;
+    font-size:9px;
+}
+@media (max-width:991px) {
+    .ua-site-footer { padding-left:24px; padding-right:24px; }
+    .ua-footer-grid { grid-template-columns:1.2fr 1fr 1fr; gap:28px; }
+    .ua-footer-contact-col { grid-column:1 / -1; }
+}
+@media (max-width:680px) {
+    .ua-site-footer { padding:30px 20px 20px; }
+    .ua-footer-grid { grid-template-columns:1fr 1fr; gap:24px; }
+    .ua-footer-brand-col,
+    .ua-footer-contact-col { grid-column:1 / -1; }
+    .ua-footer-bottom { flex-direction:column; align-items:flex-start; }
+}
+</style>
+{% endif %}

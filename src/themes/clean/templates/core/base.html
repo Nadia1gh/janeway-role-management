@@ -32,12 +32,13 @@
     {% endif %}
     <link href="{% static "common/css/index.css" %}" rel="stylesheet">
     {% block css %}{% endblock %}
+    <link href="{% static 'clean/css/header_custom.css' %}" rel="stylesheet">
     {% hook 'base_head_css' %}
 </head>
 <body>
 {% include "common/elements/skip_to_main_content.html" %}
 <div class="container">
-    <header class="site-header">
+    <header class="site-header{% if request.journal %} journal-site-header{% endif %}">
         <div id="journal-title">
             <div class="row">
                 {% if request.journal and request.journal.header_image %}

@@ -85,11 +85,50 @@ def home(request):
         request,
     )
 
+    # Keep Janeway's original homepage data and plugin hooks intact.
+    # The additional context below is only for the custom journal homepage.
+    published_articles = (
+        request.journal.published_articles
+        .select_related("section")
+        .prefetch_related("frozenauthor_set")
+    )
+
+    latest_articles = published_articles.order_by("-date_published")[:4]
+    most_read_articles = (
+        published_articles
+        .annotate(access_count=Count("articleaccess", distinct=True))
+        .order_by("-access_count", "-date_published")[:4]
+    )
+    most_cited_articles = (
+        published_articles
+        .annotate(
+            article_cites=Count("articlelink", distinct=True),
+            book_cites=Count("booklink", distinct=True),
+        )
+        .order_by("-article_cites", "-book_cites", "-date_published")[:4]
+    )
+
+    current_issue = request.journal.current_issue
+    current_issue_articles = (
+        current_issue.get_sorted_articles()[:4] if current_issue else []
+    )
+
+    editorial_groups = core_models.EditorialGroup.objects.filter(
+        journal=request.journal,
+    ).prefetch_related("editorialgroupmember_set__user")
+
     template = "journal/index.html"
     context = {
+        # Existing Janeway context — deliberately retained.
         "homepage_elements": homepage_elements,
         "issues": issues_objects,
         "sections": sections,
+        # New custom-homepage context.
+        "latest_articles": latest_articles,
+        "most_read_articles": most_read_articles,
+        "most_cited_articles": most_cited_articles,
+        "current_issue_articles": current_issue_articles,
+        "editorial_groups": editorial_groups,
     }
 
     # call all registered plugin block hooks to get relevant contexts
@@ -110,7 +149,6 @@ def home(request):
                     pass
 
     return render(request, template, context)
-
 
 @has_journal
 def serve_journal_cover(request):

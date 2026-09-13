@@ -5,97 +5,83 @@
 {% load hooks %}
 {% load next_url %}
 
-<nav class="navbar navbar-dark navbar-expand-lg navbar-custom">
-    <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse"
+<nav class="navbar navbar-expand-lg navbar-custom ua-global-nav" aria-label="{% trans 'Primary navigation' %}">
+    <button class="navbar-toggler" type="button" data-toggle="collapse"
             data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false"
-            aria-label="Toggle navigation">
+            aria-label="{% trans 'Toggle navigation' %}">
         <span class="navbar-toggler-icon"></span>
     </button>
+
     <div class="collapse navbar-collapse" id="navbarCollapse">
-        <ul class="navbar-nav font-weight-bold d-flex w-100">
+        <ul class="navbar-nav ua-main-nav">
             {% if request.journal.nav_home %}
-            <li class="nav-item"><a href="{% url 'website_index' %}" class="nav-link">{% trans 'Home' %}</a></li>{% endif %}
-            {% if request.journal.nav_news %}
-                <li class="nav-item"><a href="{% url 'core_news_list' %}" class="nav-link">{{ journal_settings.news.news_title }}</a></li>{% endif %}
-
-            {% if request.journal.nav_articles %}
-                <li class="nav-item"><a href="{% url 'journal_articles' %}" class="nav-link">{% trans 'Articles' %}</a>
-                </li>{% endif %}
-            {% if request.journal.nav_issues %}
-                <li class="nav-item"><a href="{% url 'journal_issues' %}" class="nav-link">{% trans 'Issues' %}</a></li>{% endif %}
-
-
-            {% if journal_settings.general.enable_editorial_display %}
-                {% if journal_settings.general.multi_page_editorial %}
-                <li class="nav-item dropdown">
-                    <button class="nav-link dropdown-toggle dropdown-button" id="editorial_team"
-                       data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        {{ journal_settings.styling.editorial_group_page_name }}
-                    </button>
-                    <ul class="dropdown-menu" aria-labelledby="editorial_team">
-                        {% for group in request.journal.editorial_groups %}
-                            <li><a href="{% url 'editorial_team_group' group.pk %}" class="dropdown-item">{{ group.name }}</a></li>
-                        {% endfor %}
-                    </ul>
+                <li class="nav-item">
+                    <a href="{% url 'website_index' %}" class="nav-link">{% trans 'Home' %}</a>
                 </li>
-                {% else %}
-                <li class="nav-item"><a href="{% url 'editorial_team' %}" class="nav-link">{{ journal_settings.styling.editorial_group_page_name }}</a>
-                </li>
-                {% endif %}
             {% endif %}
 
-            {% if request.journal.nav_sub %}
-                <li class="nav-item"><a href="{% url 'journal_submissions' %}" class="nav-link">{% trans 'Submission' %}</a>
-                </li>{% endif %}
+            <li class="nav-item">
+                <a href="{% url 'cms_page' 'about' %}" class="nav-link">{% trans 'About' %}</a>
+            </li>
+
+            {% if request.journal.nav_issues %}
+                <li class="nav-item">
+                    <a href="{% url 'journal_issues' %}" class="nav-link">{% trans 'Archive' %}</a>
+                </li>
+            {% endif %}
+
+            {% if journal_settings.general.enable_editorial_display %}
+                <li class="nav-item">
+                    <a href="{% url 'editorial_team' %}" class="nav-link">
+                        {% trans 'Editorial Board' %}
+                    </a>
+                </li>
+            {% endif %}
+
+            {# Render the configured Guides & Policies navigation item when it exists. #}
             {% for item in navigation_items %}
-              {% if not item.for_footer %}
-                {% if item.has_sub_nav %}
-                  <li class="nav-item dropdown">
-                    <button
-                      class="nav-link dropdown-toggle dropdown-button"
-                      id="{{ item.link_name|slugify }}"
-                      data-toggle="dropdown"
-                      aria-haspopup="true"
-                      aria-expanded="false">
-                        {{ item.link_name }}
-                    </button>
-                    <ul
-                      class="dropdown-menu"
-                      aria-labelledby="{{ item.link_name|slugify }}">
-                      {% for subnav in item.sub_nav_items %}
-                        <li>
-                          <a href="{{ subnav.url }}" class="dropdown-item">
-                            {{ subnav.link_name }}
-                          </a>
-                        </li>
-                      {% endfor %}
-                      </ul>
-                  </li>
-                {% else %}
-                  <li class="nav-item">
-                    <a href="{{ item.url }}" class="nav-link">{{ item.link_name }}</a>
-                  </li>
+                {% if not item.for_footer and item.link_name == 'Guides & Policies' %}
+                    <li class="nav-item{% if item.has_sub_nav %} dropdown{% endif %}">
+                        {% if item.has_sub_nav %}
+                            <button class="nav-link dropdown-toggle dropdown-button" id="guides-policies"
+                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                {{ item.link_name }}
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="guides-policies">
+                                {% for subnav in item.sub_nav_items %}
+                                    <li><a href="{{ subnav.url }}" class="dropdown-item">{{ subnav.link_name }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <a href="{{ item.url }}" class="nav-link">{{ item.link_name }}</a>
+                        {% endif %}
+                    </li>
                 {% endif %}
-              {% endif %}
             {% endfor %}
+
             {% if request.journal.nav_contact %}
-                <li class="nav-item"><a href="{% url 'contact' %}" class="nav-link">{% trans 'Contact' %}</a></li>{% endif %}
-            {% hook 'nav_block' %}
-            {% if request.journal.nav_start and not journal_settings.general.disable_journal_submission %}
-                <li class="nav-item"><a href="{% url 'submission_start' %}" class="nav-link">{% trans 'Start Submission' %}</a></li>{% endif %}
-            {% if request.journal.nav_review %}
-                <li class="nav-item"><a href="{% url 'become_reviewer' %}" class="nav-link">
-                    {% trans 'Become a Reviewer' %}</a>
-                </li>{% endif %}
+                <li class="nav-item">
+                    <a href="{% url 'contact' %}" class="nav-link">{% trans 'Contact us' %}</a>
+                </li>
+            {% endif %}
+        </ul>
+
+        <div class="ua-nav-tools ml-lg-auto">
+            <a href="{% url 'search' %}" class="ua-search-link" aria-label="{% trans 'Search' %}" title="{% trans 'Search' %}">
+                <i aria-hidden="true" class="fa fa-search"></i>
+            </a>
+
             {% if request.user.is_authenticated %}
-                <li class="nav-item dropdown ml-lg-auto">
-                    <button class="nav-link dropdown-toggle dropdown-button" href="" id="user"
-                       data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        {% trans 'Account '%}
+                <div class="nav-item dropdown ua-account-item">
+                    <button class="ua-account-button dropdown-toggle dropdown-button" id="user"
+                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        {% trans 'Account' %}
                     </button>
-                    <ul class="dropdown-menu" aria-labelledby="user">
+                    <ul class="dropdown-menu dropdown-menu-right" aria-labelledby="user">
                         <li><a class="dropdown-item" href="{% url 'core_dashboard' %}">{% trans 'Dashboard' %}</a></li>
-                        {% if not journal_settings.general.disable_journal_submission %}<a class="dropdown-item" href="{% url 'submission_start' %}">{% trans 'Submit' %}</a>{% endif %}
+                        {% if not journal_settings.general.disable_journal_submission %}
+                            <li><a class="dropdown-item" href="{% url 'submission_start' %}">{% trans 'Submit' %}</a></li>
+                        {% endif %}
                         {% user_has_role request 'editor' as user_is_editor %}
                         {% if user_is_editor or request.user.is_staff %}
                             <li><a class="dropdown-item" href="{% url 'kanban' %}">{% trans 'Kanban' %}</a></li>
@@ -116,20 +102,16 @@
                         <li><a class="dropdown-item" href="{% url 'core_edit_profile' %}">{% trans 'Profile' %}</a></li>
                         <li><a class="dropdown-item" href="{% url 'core_logout' %}">{% trans 'Logout' %}</a></li>
                     </ul>
-                </li>
+                </div>
             {% else %}
-                <li class="nav-item ml-lg-auto">
-                  <a href="{% url 'core_login' %}" class="nav-link">
-                    {% trans 'Log in' %}
-                  </a>
-                </li>
-                <li class="nav-item">
-                  <a href="{% url 'core_register' %}" class="nav-link">
-                    {% trans 'Register' %}
-                  </a>
-                </li>
+                <a href="{% url 'core_login' %}" class="ua-auth-link">{% trans 'Login' %}</a>
+                <span class="ua-auth-separator">/</span>
+                <a href="{% url 'core_register' %}" class="ua-auth-link">{% trans 'Register' %}</a>
             {% endif %}
-        </ul>
 
+            {% if not journal_settings.general.disable_journal_submission %}
+                <a href="{% url 'submission_start' %}" class="ua-submit-button">{% trans 'Submit Manuscript' %}</a>
+            {% endif %}
+        </div>
     </div>
 </nav>
