@@ -18,7 +18,7 @@ from django.templatetags.static import static
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.files.base import ContentFile
 from django.urls import reverse
-from django.db.models import Q, Count
+
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
@@ -28,6 +28,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.core.management import call_command
 from django.template.loader import render_to_string
+
+from django.db.models import Q, Count, Sum
+from metrics import models as metrics_models
 
 from cms import models as cms_models
 from core import (
@@ -77,6 +80,7 @@ def home(request):
     :return: a rendered template of the journal homepage
     """
     issues_objects = models.Issue.objects.filter(journal=request.journal)
+
     sections = submission_models.Section.objects.filter(
         journal=request.journal,
     )
@@ -86,10 +90,84 @@ def home(request):
     )
 
     template = "journal/index.html"
+
+    published_articles = submission_models.Article.objects.filter(
+        journal=request.journal,
+        stage=submission_models.STAGE_PUBLISHED,
+        date_published__isnull=False,
+        date_published__lte=timezone.now(),
+    )
+    latest_articles = (
+        published_articles
+        .select_related("section")
+        .prefetch_related("frozenauthor_set")
+        .order_by("-date_published", "-pk")[:6]
+    )
+
+    most_read_articles = (
+        published_articles
+        .select_related("section")
+        .prefetch_related("frozenauthor_set")
+        .order_by(
+            "-historicarticleaccess__views",
+            "-date_published",
+            "-pk",
+        )[:6]
+    )
+    most_cited_articles = list(
+        published_articles
+        .select_related("section")
+        .prefetch_related(
+            "frozenauthor_set",
+            "articlelink_set",
+            "booklink_set",
+        )
+    )
+
+    most_cited_articles.sort(
+        key=lambda article: (
+            article.citation_count,
+            article.date_published,
+        ),
+        reverse=True,
+    )
+
+    most_cited_articles = most_cited_articles[:6]
+
+
+
+
+    historic_metrics = metrics_models.HistoricArticleAccess.objects.filter(
+        article__journal=request.journal,
+    ).aggregate(
+        views=Sum("views"),
+        downloads=Sum("downloads"),
+    )
+
+    editor_in_chief = (
+        core_models.AccountRole.objects.filter(
+            journal=request.journal,
+            role__slug="editor-in-chief",
+        )
+        .select_related("user")
+        .first()
+    )
+
     context = {
         "homepage_elements": homepage_elements,
         "issues": issues_objects,
         "sections": sections,
+        "editor_in_chief": editor_in_chief,
+        "latest_articles": latest_articles,
+        "most_read_articles": most_read_articles,
+        "most_cited_articles": most_cited_articles,
+        "homepage_stats": {
+            "published_articles": published_articles.count(),
+            "issues": issues_objects.count(),
+            "editors": request.journal.users_with_role_count("editor"),
+            "views": historic_metrics["views"] or 0,
+            "downloads": historic_metrics["downloads"] or 0,
+        },
     }
 
     # call all registered plugin block hooks to get relevant contexts
@@ -103,6 +181,7 @@ def home(request):
 
                 for k, v in element_context.items():
                     context[k] = v
+
             except utils_models.Plugin.DoesNotExist as e:
                 if settings.DEBUG:
                     logger.debug(e)
@@ -498,7 +577,7 @@ def article(request, identifier_type, identifier):
             file__mime_type="text/html",
         )
 
-    template = "journal/article.html"
+    template = "journal/articles.html"
     context = {
         "article": article_object,
         "galleys": galleys,

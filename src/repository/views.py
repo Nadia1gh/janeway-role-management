@@ -1103,7 +1103,7 @@ def repository_manager_article(request, preprint_id):
                 )
             )
 
-    template = "admin/repository/article.html"
+    template = "admin/repository/articles.html"
     context = {
         "preprint": preprint,
         "subjects": models.Subject.objects.filter(enabled=True),

@@ -1347,7 +1347,7 @@ def typesetting_preview_galley(
             )
 
     if galley.type == "xml" or galley.type == "html":
-        template = "journal/article.html"
+        template = "journal/articles.html"
     elif galley.type == "epub":
         template = "proofing/preview/epub.html"
     else:

@@ -1034,7 +1034,7 @@ def dashboard_article(request, article_id):
         journal=request.journal,
     )
 
-    template = "core/article.html"
+    template = "core/articles.html"
     context = {
         "article": article,
     }
