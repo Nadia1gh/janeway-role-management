@@ -672,7 +672,7 @@ TINYMCE_DEFAULT_CONFIG = {
     "branding": False,
     "convert_urls": False,
     "menubar": "edit view insert format tools table help",
-    "content_css": STATIC_URL + "/admin/css/admin.css",
+    "content_css": STATIC_URL + "admin/css/admin.css",
     "plugins": "advlist autolink lists link image charmap preview anchor searchreplace visualblocks code"
     " fullscreen insertdatetime media table code help wordcount spellchecker help",
     "toolbar": "help removeformat | undo redo | bold italic underline strikethrough "

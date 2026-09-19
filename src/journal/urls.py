@@ -8,6 +8,9 @@ from django.urls import re_path
 from journal import views
 from identifiers.models import NON_DOI_IDENTIFIER_TYPES, DOI_REGEX_PATTERN
 
+from plugins.abstract_indexing import views as abstract_indexing_views
+
+
 NON_DOI_PIPE_SEPARATED_IDENTIFIERS = "|".join(NON_DOI_IDENTIFIER_TYPES)
 
 # Various url patterns in this module have duplicated names
@@ -89,6 +92,12 @@ urlpatterns = [
         views.PublishedArticlesListView.as_view(),
         name="journal_articles",
     ),
+    re_path(
+        r"^indexing/$",
+        abstract_indexing_views.indexing,
+        name="abstract_indexing",
+    ),
+
     # Issues/Collections
     re_path(r"^issues/$", views.issues, name="journal_issues"),
     re_path(r"^issue/current/$", views.current_issue, name="current_issue"),
@@ -280,6 +289,12 @@ urlpatterns = [
         r"^manage/articles/schedule/$",
         views.publication_schedule,
         name="publication_schedule",
+    ),
+    # Reviewer
+    re_path(
+        r"^manage/footer/$",
+        views.journal_footer_settings,
+        name="journal_footer_settings",
     ),
     # Languages
     re_path(r"^manage/languages/$", views.manage_languages, name="manage_languages"),

@@ -68,6 +68,8 @@ from utils.logger import get_logger
 from events import logic as event_logic
 from typesetting import models as typesetting_models
 
+from django.contrib import messages
+
 logger = get_logger(__name__)
 
 
@@ -187,6 +189,35 @@ def home(request):
                     logger.debug(e)
                 else:
                     pass
+
+    return render(request, template, context)
+
+
+@editor_user_required
+def journal_footer_settings(request):
+    form = forms.JournalFooterForm(
+        instance=request.journal,
+    )
+
+    if request.method == "POST":
+        form = forms.JournalFooterForm(
+            request.POST,
+            instance=request.journal,
+        )
+
+        if form.is_valid():
+            form.save()
+            messages.add_message(
+                request,
+                messages.INFO,
+                "Journal footer updated.",
+            )
+            return redirect("journal_footer_settings")
+
+    template = "admin/journal/footer.html"
+    context = {
+        "form": form,
+    }
 
     return render(request, template, context)
 

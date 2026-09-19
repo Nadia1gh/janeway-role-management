@@ -35,6 +35,66 @@ class JournalForm(forms.ModelForm):
             "The journal will always be available under the /code path",
         }
 
+class JournalFooterForm(forms.ModelForm):
+    class Meta:
+        model = journal_models.Journal
+        fields = (
+            "footer_brand",
+            "footer_useful_links",
+            "footer_guides",
+            "footer_contact",
+        )
+
+        widgets = {
+            "footer_brand": TinyMCE(
+                mce_attrs={
+                    "menubar": False,
+                    "plugins": "link lists",
+                    "toolbar": (
+                        "undo redo | "
+                        "bold italic underline | "
+                        "bullist numlist | "
+                        "link unlink"
+                    ),
+                }
+            ),
+            "footer_useful_links": TinyMCE(
+                mce_attrs={
+                    "menubar": False,
+                    "plugins": "link lists",
+                    "toolbar": (
+                        "undo redo | "
+                        "bold italic underline | "
+                        "bullist numlist | "
+                        "link unlink"
+                    ),
+                }
+            ),
+            "footer_guides": TinyMCE(
+                mce_attrs={
+                    "menubar": False,
+                    "plugins": "link lists",
+                    "toolbar": (
+                        "undo redo | "
+                        "bold italic underline | "
+                        "bullist numlist | "
+                        "link unlink"
+                    ),
+                }
+            ),
+            "footer_contact": TinyMCE(
+                mce_attrs={
+                    "menubar": False,
+                    "plugins": "link lists",
+                    "toolbar": (
+                        "undo redo | "
+                        "bold italic underline | "
+                        "bullist numlist | "
+                        "link unlink"
+                    ),
+                }
+            ),
+        }
 
 class ContactForm(forms.ModelForm, CaptchaForm):
     def __init__(self, *args, **kwargs):
