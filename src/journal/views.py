@@ -164,11 +164,18 @@ def home(request):
         "most_read_articles": most_read_articles,
         "most_cited_articles": most_cited_articles,
         "homepage_stats": {
-            "published_articles": published_articles.count(),
-            "issues": issues_objects.count(),
-            "editors": request.journal.users_with_role_count("editor"),
-            "views": historic_metrics["views"] or 0,
-            "downloads": historic_metrics["downloads"] or 0,
+
+        "start_publication": "2026",
+        "issues_per_year": 4,
+        "acceptance_rate": 35,
+        "review_speed": "21 days",
+        "apc": "Free",
+
+            # "published_articles": published_articles.count(),
+            # "issues": issues_objects.count(),
+            # "editors": request.journal.users_with_role_count("editor"),
+            # "views": historic_metrics["views"] or 0,
+            # "downloads": historic_metrics["downloads"] or 0,
         },
     }
 

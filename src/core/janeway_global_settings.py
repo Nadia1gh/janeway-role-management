@@ -659,7 +659,7 @@ TINYMCE_CLIPBOARD_CLEANER = {
         }
     """,
 }
-TINYMCE_JS_URL = STATIC_URL + "/common/js/tinymce/tinymce.min.js"
+TINYMCE_JS_URL = STATIC_URL + "common/js/tinymce/tinymce.min.js"
 TINYMCE_COMPRESSOR = False
 
 TINYMCE_DEFAULT_CONFIG = {
