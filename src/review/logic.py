@@ -152,10 +152,17 @@ def get_reviewer_candidates(article, user=None, reviewers_to_exclude=None):
                 reviewer.pk,
             )
 
-    legacy_reviewer_pks = article.journal.users_with_role("reviewer").values_list(
-        "pk",
-        flat=True,
+    legacy_reviewer_pks = (
+        article.journal.users_with_role("reviewer")
+        .exclude(
+            reviewer_pool_memberships__journal=article.journal,
+        )
+        .values_list(
+            "pk",
+            flat=True,
+        )
     )
+
     pool_reviewer_pks = get_reviewer_pool_candidates(article).values_list(
         "pk",
         flat=True,

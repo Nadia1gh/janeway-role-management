@@ -805,6 +805,20 @@ class Account(AbstractBaseUser, PermissionsMixin):
         return False
 
     def is_reviewer(self, request):
+        if self.is_staff or self.is_journal_manager(request.journal):
+            return True
+
+        membership = review_models.ReviewerPoolMembership.objects.filter(
+            account=self,
+            journal=request.journal,
+        ).first()
+
+        if membership:
+            return (
+                    membership.status
+                    == review_models.ReviewerPoolMembership.STATUS_ACTIVE
+            )
+
         return self.check_role(request.journal, "reviewer")
 
     def is_author(self, request):
