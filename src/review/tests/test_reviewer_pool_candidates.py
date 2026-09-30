@@ -383,6 +383,46 @@ class TestReviewerPoolCandidates(TestCase):
             )
         )
 
+    def test_blocked_pool_member_with_legacy_role_is_not_eligible(self):
+        ReviewerPoolMembership.objects.update_or_create(
+            account=self.legacy_account,
+            journal=self.journal,
+            defaults={
+                "status": ReviewerPoolMembership.STATUS_BLOCKED,
+                "is_available": True,
+            },
+        )
+
+        self.assertFalse(
+            logic.is_eligible_reviewer(
+                self.article,
+                self.legacy_account,
+            )
+        )
+
+    def test_ensure_reviewer_pool_membership_creates_active_member_without_legacy_role(
+            self,
+    ):
+        membership = logic.ensure_reviewer_pool_membership(
+            self.pool_account,
+            self.journal,
+            ReviewerPoolMembership.SOURCE_MANUAL,
+        )
+
+        self.assertEqual(
+            membership.status,
+            ReviewerPoolMembership.STATUS_ACTIVE,
+        )
+        self.assertTrue(membership.is_available)
+
+        self.assertFalse(
+            AccountRole.objects.filter(
+                user=self.pool_account,
+                journal=self.journal,
+                role__slug="reviewer",
+            ).exists()
+        )
+
     def test_quick_assign_accepts_active_pool_member_without_reviewer_role(self):
         ReviewerPoolMembership.objects.update_or_create(
             account=self.pool_account,

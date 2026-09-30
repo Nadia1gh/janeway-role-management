@@ -718,7 +718,13 @@ def handle_reviewer_form(request, new_reviewer_form):
     account = new_reviewer_form.save(commit=False)
     account.is_active = True
     account.save()
-    account.add_account_role("reviewer", request.journal)
+
+    ensure_reviewer_pool_membership(
+        account,
+        request.journal,
+        models.ReviewerPoolMembership.SOURCE_MANUAL,
+    )
+
     messages.add_message(request, messages.INFO, "A new account has been created.")
     return account
 
@@ -956,8 +962,31 @@ def process_reviewer_csv(path, request, article, form):
                     )
                     reviewer.interest.add(interest)
 
-            # Add the reviewer role
-            reviewer.add_account_role("reviewer", request.journal)
+            # Add the reviewer to the reviewer pool
+
+            if _is_article_author(article, reviewer):
+                messages.add_message(
+                    request,
+                    messages.WARNING,
+                    f"{reviewer.full_name()} was skipped because they are an author "
+                    "of the article.",
+                )
+                continue
+
+            ensure_reviewer_pool_membership(
+                reviewer,
+                request.journal,
+                models.ReviewerPoolMembership.SOURCE_IMPORT,
+            )
+
+            if not is_eligible_reviewer(article, reviewer):
+                messages.add_message(
+                    request,
+                    messages.WARNING,
+                    f"{reviewer.full_name()} was skipped because they are not an "
+                    "eligible reviewer.",
+                )
+                continue
 
             review_assignment, c = models.ReviewAssignment.objects.get_or_create(
                 article=article,
@@ -1072,6 +1101,47 @@ def ensure_reviewer_pool_candidate(article, account):
     return membership
 
 
+def ensure_reviewer_pool_membership(account, journal, source):
+    """
+    Ensure an account has a reviewer-pool membership.
+
+    New memberships are active and available.
+    Candidate memberships are promoted when explicitly added as reviewers.
+    Existing inactive, blocked, or unavailable memberships are preserved.
+    """
+    if not account or not journal:
+        return None
+
+    membership, created = models.ReviewerPoolMembership.objects.get_or_create(
+        account=account,
+        journal=journal,
+        defaults={
+            "status": models.ReviewerPoolMembership.STATUS_ACTIVE,
+            "source": source,
+            "is_available": True,
+        },
+    )
+
+    if (
+        not created
+        and membership.status
+        == models.ReviewerPoolMembership.STATUS_CANDIDATE
+    ):
+        membership.status = models.ReviewerPoolMembership.STATUS_ACTIVE
+        membership.source = source
+        membership.is_available = True
+        membership.save(
+            update_fields=[
+                "status",
+                "source",
+                "is_available",
+                "updated",
+            ],
+        )
+
+    return membership
+
+
 def _is_article_author(article, account):
     if not article or not account:
         return False
@@ -1083,6 +1153,8 @@ def is_eligible_reviewer(article, account):
     """
     Return whether an account can be assigned as a reviewer
     for the article's journal.
+
+    Reviewer-pool membership takes precedence over the legacy reviewer role.
     """
     if not article or not article.journal or not account:
         return False
@@ -1090,15 +1162,18 @@ def is_eligible_reviewer(article, account):
     if _is_article_author(article, account):
         return False
 
-    if account in article.journal.users_with_role("reviewer"):
-        return True
-
-    return models.ReviewerPoolMembership.objects.filter(
+    membership = models.ReviewerPoolMembership.objects.filter(
         account=account,
         journal=article.journal,
-        status=models.ReviewerPoolMembership.STATUS_ACTIVE,
-        is_available=True,
-    ).exists()
+    ).first()
+
+    if membership:
+        return (
+            membership.status == models.ReviewerPoolMembership.STATUS_ACTIVE
+            and membership.is_available
+        )
+
+    return account in article.journal.users_with_role("reviewer")
 
 
 def get_reviewer_pool_candidates(article, exclude_pks=None):

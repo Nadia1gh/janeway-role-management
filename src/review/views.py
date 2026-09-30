@@ -1234,7 +1234,11 @@ def add_review_assignment(request, article_id):
                 user = core_models.Account.objects.get(
                     email=new_reviewer_form.data["email"]
                 )
-                user.add_account_role("reviewer", request.journal)
+                logic.ensure_reviewer_pool_membership(
+                    user,
+                    request.journal,
+                    models.ReviewerPoolMembership.SOURCE_MANUAL,
+                )
             except core_models.Account.DoesNotExist:
                 user = None
 
