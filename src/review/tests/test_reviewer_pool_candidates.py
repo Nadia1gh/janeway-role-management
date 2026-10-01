@@ -518,6 +518,71 @@ class TestReviewerPoolCandidates(TestCase):
             ).exists()
         )
 
+    def test_active_pool_member_is_reviewer_without_legacy_role(self):
+        ReviewerPoolMembership.objects.update_or_create(
+            account=self.pool_account,
+            journal=self.journal,
+            defaults={
+                "status": ReviewerPoolMembership.STATUS_ACTIVE,
+                "is_available": True,
+            },
+        )
+
+        request = self.client.request().wsgi_request
+        request.journal = self.journal
+
+        self.assertTrue(
+            self.pool_account.is_reviewer(request),
+        )
+
+    def test_blocked_pool_member_overrides_legacy_reviewer_role(self):
+        ReviewerPoolMembership.objects.update_or_create(
+            account=self.legacy_account,
+            journal=self.journal,
+            defaults={
+                "status": ReviewerPoolMembership.STATUS_BLOCKED,
+                "is_available": True,
+            },
+        )
+
+        request = self.client.request().wsgi_request
+        request.journal = self.journal
+
+        self.assertFalse(
+            self.legacy_account.is_reviewer(request),
+        )
+
+    def test_blocked_pool_member_with_legacy_role_is_not_candidate(self):
+        ReviewerPoolMembership.objects.update_or_create(
+            account=self.legacy_account,
+            journal=self.journal,
+            defaults={
+                "status": ReviewerPoolMembership.STATUS_BLOCKED,
+                "is_available": True,
+            },
+        )
+
+        candidates = logic.get_reviewer_candidates(
+            self.article,
+        )
+
+        self.assertNotIn(
+            self.legacy_account.pk,
+            candidates.values_list(
+                "pk",
+                flat=True,
+            ),
+        )
+
+    def test_legacy_reviewer_without_pool_membership_remains_reviewer(self):
+        request = self.client.request().wsgi_request
+        request.journal = self.journal
+
+        self.assertTrue(
+            self.legacy_account.is_reviewer(request),
+        )
+
+
     def test_quick_assign_rejects_inactive_pool_member(self):
         ReviewerPoolMembership.objects.update_or_create(
             account=self.inactive_account,
