@@ -1,4 +1,4 @@
-habeautifulsoup4==4.9.3
+beautifulsoup4==4.9.3
 bleach-allowlist==1.0.3
 boto==2.46.1
 bs4==0.0.1
