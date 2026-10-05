@@ -79,3 +79,79 @@ class TestReviewerPoolMembershipSignal(TestCase):
                 role__slug="reviewer",
             ).exists()
         )
+    def test_legacy_reviewer_author_remains_active_reviewer(self):
+        helpers.create_roles(["Reviewer"])
+
+        self.account.add_account_role(
+            "reviewer",
+            self.journal,
+        )
+
+        helpers.create_frozen_author(
+            self.article,
+            author=self.account,
+        )
+
+        membership = ReviewerPoolMembership.objects.get(
+            account=self.account,
+            journal=self.journal,
+        )
+
+        self.assertEqual(
+            membership.status,
+            ReviewerPoolMembership.STATUS_ACTIVE,
+        )
+
+        self.assertEqual(
+            membership.source,
+            ReviewerPoolMembership.SOURCE_PREVIOUS_REVIEWER,
+        )
+
+        self.assertTrue(
+            membership.is_available,
+        )
+
+        self.assertTrue(
+            AccountRole.objects.filter(
+                user=self.account,
+                journal=self.journal,
+                role__slug="reviewer",
+            ).exists()
+        )
+
+    def test_author_candidate_legacy_reviewer_is_promoted(self):
+        membership = ReviewerPoolMembership.objects.create(
+            account=self.account,
+            journal=self.journal,
+            status=ReviewerPoolMembership.STATUS_CANDIDATE,
+            source=ReviewerPoolMembership.SOURCE_AUTHOR,
+            is_available=True,
+        )
+
+        helpers.create_roles(["Reviewer"])
+
+        self.account.add_account_role(
+            "reviewer",
+            self.journal,
+        )
+
+        helpers.create_frozen_author(
+            self.article,
+            author=self.account,
+        )
+
+        membership.refresh_from_db()
+
+        self.assertEqual(
+            membership.status,
+            ReviewerPoolMembership.STATUS_ACTIVE,
+        )
+
+        self.assertEqual(
+            membership.source,
+            ReviewerPoolMembership.SOURCE_PREVIOUS_REVIEWER,
+        )
+
+        self.assertTrue(
+            membership.is_available,
+        )

@@ -27,7 +27,10 @@ from journal import models as journal_models
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from utils import models as utils_models, setting_handler
 from core import models as core_models, files as core_files
-from review import models as review_models
+from review import (
+    logic as review_logic,
+    models as review_models,
+)
 from utils.logger import get_logger
 from review.const import EditorialDecisions as ED
 from cms import models as cms_models
@@ -618,8 +621,16 @@ def import_jms_user(url, journal, auth_file, base_url, user_id):
         account.save()
 
         if account:
-            account.add_account_role(journal=journal, role_slug="author")
-            account.add_account_role(journal=journal, role_slug="reviewer")
+            account.add_account_role(
+                journal=journal,
+                role_slug="author",
+            )
+
+            review_logic.ensure_reviewer_pool_membership(
+                account,
+                journal,
+                review_models.ReviewerPoolMembership.SOURCE_IMPORT,
+            )
 
 
 def process_resp(resp):

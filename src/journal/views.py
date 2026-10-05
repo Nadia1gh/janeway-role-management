@@ -65,6 +65,8 @@ from utils.logger import get_logger
 from events import logic as event_logic
 from typesetting import models as typesetting_models
 
+from review import logic as review_logic
+
 logger = get_logger(__name__)
 
 
@@ -2069,16 +2071,17 @@ def publication_schedule(request):
 @decorators.frontend_enabled
 def become_reviewer(request):
     """
-    If a user is signed in and not a reviewer, lets them become one, otherwsie asks them to login/tells them they
-    are already a reviewer
+    If a user is signed in and not a reviewer, lets them become one, otherwise
+    tells them they are already a reviewer.
+
     :param request: django request object
     :return: a contextualised django template
     """
 
-    # The user needs to login before we can do anything else
     code = "not-logged-in"
     message = _(
-        "You must login before you can become a reviewer. Click the button below to login."
+        "You must login before you can become a reviewer. "
+        "Click the button below to login."
     )
 
     if (
@@ -2086,10 +2089,10 @@ def become_reviewer(request):
         and request.user.is_authenticated
         and not request.user.is_reviewer(request)
     ):
-        # We have a user, they are logged in and not yet a reviewer
         code = "not-reviewer"
         message = _(
-            "You are not yet a reviewer for this journal. Click the button below to become a reviewer."
+            "You are not yet a reviewer for this journal. "
+            "Click the button below to become a reviewer."
         )
 
     elif (
@@ -2097,17 +2100,33 @@ def become_reviewer(request):
         and request.user.is_authenticated
         and request.user.is_reviewer(request)
     ):
-        # The user is logged in, and is already a reviewer
         code = "already-reviewer"
         message = _("You are already a reviewer.")
 
     if request.POST.get("action", None) == "go":
-        request.user.add_account_role("reviewer", request.journal)
-        messages.add_message(
-            request,
-            messages.SUCCESS,
-            _("You are now a reviewer"),
+        membership = review_logic.ensure_reviewer_pool_membership(
+            request.user,
+            request.journal,
+            review_models.ReviewerPoolMembership.SOURCE_SELF_ENROLLMENT,
         )
+
+        if (
+            membership
+            and membership.status
+            == review_models.ReviewerPoolMembership.STATUS_ACTIVE
+        ):
+            messages.add_message(
+                request,
+                messages.SUCCESS,
+                _("You are now a reviewer"),
+            )
+        else:
+            messages.add_message(
+                request,
+                messages.WARNING,
+                _("Your reviewer status could not be activated."),
+            )
+
         return redirect(reverse("core_dashboard"))
 
     template = "journal/become_reviewer.html"
@@ -2117,7 +2136,6 @@ def become_reviewer(request):
     }
 
     return render(request, template, context)
-
 
 def contact(request):
     """

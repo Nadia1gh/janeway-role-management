@@ -735,26 +735,6 @@ def handle_reviewer_form(request, new_reviewer_form):
     messages.add_message(request, messages.INFO, "A new account has been created.")
     return account
 
-
-def get_enrollable_users(request):
-    account_roles = core_models.AccountRole.objects.filter(
-        journal=request.journal,
-        role__slug="reviewer",
-    ).prefetch_related(
-        "user",
-    )
-    users_with_role = [assignment.user.pk for assignment in account_roles]
-    return (
-        core_models.Account.objects.all()
-        .order_by(
-            "last_name",
-        )
-        .exclude(
-            pk__in=users_with_role,
-        )
-    )
-
-
 def generate_access_code_url(url_name, assignment, access_code):
     reverse_url = reverse(url_name, kwargs={"assignment_id": assignment.pk})
 
@@ -1088,22 +1068,66 @@ def ensure_reviewer_pool_candidate(article, account):
     """
     Ensure an article author is present in the journal reviewer pool.
 
-    Existing memberships are preserved unchanged.
+    Legacy reviewers are preserved as active reviewers when their first
+    reviewer-pool membership is created. Existing authoritative memberships
+    are otherwise preserved unchanged.
     """
     from review import models as review_models
 
     if not article or not article.journal or not account:
         return None
 
-    membership, _ = review_models.ReviewerPoolMembership.objects.get_or_create(
-        account=account,
+    has_legacy_reviewer_role = core_models.AccountRole.objects.filter(
+        user=account,
         journal=article.journal,
-        defaults={
-            "status": review_models.ReviewerPoolMembership.STATUS_CANDIDATE,
-            "source": review_models.ReviewerPoolMembership.SOURCE_AUTHOR,
-            "is_available": True,
-        },
+        role__slug="reviewer",
+    ).exists()
+
+    if has_legacy_reviewer_role:
+        default_status = review_models.ReviewerPoolMembership.STATUS_ACTIVE
+        default_source = (
+            review_models.ReviewerPoolMembership.SOURCE_PREVIOUS_REVIEWER
+        )
+    else:
+        default_status = review_models.ReviewerPoolMembership.STATUS_CANDIDATE
+        default_source = review_models.ReviewerPoolMembership.SOURCE_AUTHOR
+
+    membership, created = (
+        review_models.ReviewerPoolMembership.objects.get_or_create(
+            account=account,
+            journal=article.journal,
+            defaults={
+                "status": default_status,
+                "source": default_source,
+                "is_available": True,
+            },
+        )
     )
+
+    # Repair the specific legacy state created by the old author signal:
+    # a legacy reviewer whose pool membership was created as an author
+    # candidate must remain an active reviewer.
+    if (
+        not created
+        and has_legacy_reviewer_role
+        and membership.status
+        == review_models.ReviewerPoolMembership.STATUS_CANDIDATE
+        and membership.source
+        == review_models.ReviewerPoolMembership.SOURCE_AUTHOR
+    ):
+        membership.status = (
+            review_models.ReviewerPoolMembership.STATUS_ACTIVE
+        )
+        membership.source = (
+            review_models.ReviewerPoolMembership.SOURCE_PREVIOUS_REVIEWER
+        )
+        membership.save(
+            update_fields=[
+                "status",
+                "source",
+                "updated",
+            ],
+        )
 
     return membership
 

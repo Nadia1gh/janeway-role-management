@@ -744,6 +744,7 @@ class ReviewerPoolMembership(models.Model):
 
     SOURCE_AUTHOR = "author"
     SOURCE_MANUAL = "manual"
+    SOURCE_SELF_ENROLLMENT = "self_enrollment"
     SOURCE_PREVIOUS_REVIEWER = "previous_reviewer"
     SOURCE_IMPORT = "import"
     SOURCE_EDITORIAL_BOARD = "editorial_board"
@@ -752,6 +753,7 @@ class ReviewerPoolMembership(models.Model):
     SOURCE_CHOICES = (
         (SOURCE_AUTHOR, "Author"),
         (SOURCE_MANUAL, "Manual"),
+        (SOURCE_SELF_ENROLLMENT, "Self Enrollment"),
         (SOURCE_PREVIOUS_REVIEWER, "Previous Reviewer"),
         (SOURCE_IMPORT, "Import"),
         (SOURCE_EDITORIAL_BOARD, "Editorial Board"),

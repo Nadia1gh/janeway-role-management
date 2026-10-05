@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
+from urllib.parse import parse_qs, urlparse
 
 from core.middleware import get_site_resources
 from core.models import AccountRole
@@ -8,7 +9,7 @@ from utils.testing import helpers
 
 
 class TestReviewerPoolManager(TestCase):
-    
+
     def setUp(self):
         self.press = helpers.create_press()
 
@@ -68,7 +69,6 @@ class TestReviewerPoolManager(TestCase):
             is_available=True,
         )
 
-
     def test_editor_can_open_reviewer_pool(self):
         self.client.force_login(self.editor)
 
@@ -113,6 +113,26 @@ class TestReviewerPoolManager(TestCase):
             self.other_journal_account.email,
         )
 
+    def test_add_reviewer_pool_member_defaults_to_active_available_and_hides_source(self):
+        self.client.force_login(self.editor)
+
+        response = self.client.get(
+            reverse("review_add_reviewer_pool_member"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["form"].initial["status"],
+            ReviewerPoolMembership.STATUS_ACTIVE,
+        )
+        self.assertNotIn(
+            "source",
+            response.context["form"].fields,
+        )
+        self.assertTrue(
+            response.context["form"].initial["is_available"],
+        )
+
     def test_editor_can_add_reviewer_pool_member(self):
         self.client.force_login(self.editor)
 
@@ -121,7 +141,6 @@ class TestReviewerPoolManager(TestCase):
             {
                 "account": self.other_user.pk,
                 "status": ReviewerPoolMembership.STATUS_ACTIVE,
-                "source": ReviewerPoolMembership.SOURCE_MANUAL,
                 "is_available": "on",
                 "notes": "Added manually",
             },
@@ -145,6 +164,91 @@ class TestReviewerPoolManager(TestCase):
         self.assertTrue(membership.is_available)
         self.assertEqual(membership.notes, "Added manually")
 
+    def test_add_reviewer_pool_member_returns_to_assignment(self):
+        self.client.force_login(self.editor)
+
+        return_url = "/review/article/123/add-review/"
+
+        response = self.client.post(
+            reverse("review_add_reviewer_pool_member"),
+            {
+                "account": self.other_user.pk,
+                "status": ReviewerPoolMembership.STATUS_ACTIVE,
+                "is_available": "on",
+                "notes": "",
+                "return": return_url,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        parsed_url = urlparse(response.url)
+        query = parse_qs(parsed_url.query)
+
+        self.assertEqual(parsed_url.path, return_url)
+        self.assertEqual(
+            query["user"],
+            [self.other_user.email],
+        )
+        self.assertEqual(
+            query["id"],
+            [str(self.other_user.pk)],
+        )
+
+        self.assertFalse(
+            AccountRole.objects.filter(
+                user=self.other_user,
+                journal=self.journal,
+                role__slug="reviewer",
+            ).exists()
+        )
+
+    def test_add_reviewer_pool_member_rejects_external_return_url(self):
+        self.client.force_login(self.editor)
+
+        response = self.client.post(
+            reverse("review_add_reviewer_pool_member"),
+            {
+                "account": self.other_user.pk,
+                "status": ReviewerPoolMembership.STATUS_ACTIVE,
+                "is_available": "on",
+                "notes": "",
+                "return": "https://example.com/not-allowed/",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.url,
+            reverse("review_reviewer_pool"),
+        )
+
+    def test_add_reviewer_pool_member_forces_manual_source(self):
+        self.client.force_login(self.editor)
+
+        response = self.client.post(
+            reverse("review_add_reviewer_pool_member"),
+            {
+                "account": self.other_user.pk,
+                "status": ReviewerPoolMembership.STATUS_ACTIVE,
+                "source": ReviewerPoolMembership.SOURCE_EXTERNAL,
+                "is_available": "on",
+                "notes": "Manager-added reviewer",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        membership = ReviewerPoolMembership.objects.get(
+            account=self.other_user,
+            journal=self.journal,
+        )
+
+        self.assertEqual(
+            membership.source,
+            ReviewerPoolMembership.SOURCE_MANUAL,
+        )
+
     def test_duplicate_reviewer_pool_member_is_rejected(self):
         self.client.force_login(self.editor)
 
@@ -153,7 +257,6 @@ class TestReviewerPoolManager(TestCase):
             {
                 "account": self.account.pk,
                 "status": ReviewerPoolMembership.STATUS_ACTIVE,
-                "source": ReviewerPoolMembership.SOURCE_MANUAL,
                 "is_available": "on",
                 "notes": "",
             },
@@ -179,7 +282,9 @@ class TestReviewerPoolManager(TestCase):
             ),
             {
                 "status": ReviewerPoolMembership.STATUS_INACTIVE,
+                "source": ReviewerPoolMembership.SOURCE_EXTERNAL,
                 "is_available": "",
+                "notes": "Temporarily unavailable",
             },
         )
 
@@ -192,6 +297,29 @@ class TestReviewerPoolManager(TestCase):
             ReviewerPoolMembership.STATUS_INACTIVE,
         )
         self.assertFalse(self.membership.is_available)
+        self.assertEqual(
+            self.membership.source,
+            ReviewerPoolMembership.SOURCE_MANUAL,
+        )
+        self.assertEqual(
+            self.membership.notes,
+            "Temporarily unavailable",
+        )
+
+    def test_edit_form_displays_but_does_not_edit_source(self):
+        self.client.force_login(self.editor)
+
+        response = self.client.get(
+            reverse(
+                "review_edit_reviewer_pool_member",
+                kwargs={"membership_id": self.membership.pk},
+            ),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("source", response.context["form"].fields)
+        self.assertIn("notes", response.context["form"].fields)
+        self.assertContains(response, self.membership.get_source_display())
 
     def test_membership_from_another_journal_cannot_be_edited(self):
         self.client.force_login(self.editor)
@@ -237,7 +365,6 @@ class TestReviewerPoolManager(TestCase):
             {
                 "account": self.other_user.pk,
                 "status": ReviewerPoolMembership.STATUS_ACTIVE,
-                "source": ReviewerPoolMembership.SOURCE_MANUAL,
                 "is_available": "on",
                 "notes": "",
             },

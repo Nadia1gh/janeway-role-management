@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.http import Http404
 from django.core.exceptions import PermissionDenied
@@ -50,7 +51,13 @@ from security.decorators import (
     user_has_completed_review_for_article,
 )
 from submission import models as submission_models, forms as submission_forms
-from utils import models as util_models, ithenticate, shared, setting_handler
+from utils import (
+    ithenticate,
+    logic as utils_logic,
+    models as util_models,
+    setting_handler,
+    shared,
+)
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -2929,6 +2936,26 @@ def review_forms(request):
     return render(request, template, context)
 
 
+def _reviewer_pool_return_url(request):
+    return_url = (
+        request.POST.get("return")
+        or request.GET.get("return")
+        or ""
+    )
+
+    if not return_url:
+        return ""
+
+    if not url_has_allowed_host_and_scheme(
+        return_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return ""
+
+    return return_url
+
+
 @editor_or_journal_manager_required
 def reviewer_pool(request):
     """
@@ -2960,7 +2987,13 @@ def add_reviewer_pool_member(request):
     """
     Adds an existing account to the reviewer pool for the current journal.
     """
-    form = forms.ReviewerPoolMembershipAddForm()
+    return_url = _reviewer_pool_return_url(request)
+    form = forms.ReviewerPoolMembershipAddForm(
+        initial={
+            "status": models.ReviewerPoolMembership.STATUS_ACTIVE,
+            "is_available": True,
+        }
+    )
 
     if request.method == "POST":
         form = forms.ReviewerPoolMembershipAddForm(request.POST)
@@ -2979,6 +3012,9 @@ def add_reviewer_pool_member(request):
             else:
                 membership = form.save(commit=False)
                 membership.journal = request.journal
+                membership.source = (
+                    models.ReviewerPoolMembership.SOURCE_MANUAL
+                )
                 membership.save()
 
                 messages.add_message(
@@ -2987,12 +3023,24 @@ def add_reviewer_pool_member(request):
                     "Reviewer pool member added.",
                 )
 
+                if return_url:
+                    return redirect(
+                        utils_logic.add_query_parameters_to_url(
+                            return_url,
+                            {
+                                "user": account.email,
+                                "id": account.pk,
+                            },
+                        )
+                    )
+
                 return redirect(reverse("review_reviewer_pool"))
 
     template = "review/manager/reviewer_pool_edit.html"
     context = {
         "form": form,
         "active": "add",
+        "return_url": return_url,
     }
 
     return render(request, template, context)

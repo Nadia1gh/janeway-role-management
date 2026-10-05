@@ -1,4 +1,3 @@
-```django
 {% extends "admin/core/base.html" %}
 {% load foundation %}
 
@@ -38,7 +37,19 @@
         <form method="post">
             {% csrf_token %}
 
+            {% if return_url %}
+                <input type="hidden" name="return" value="{{ return_url }}">
+            {% endif %}
+
             {{ form.non_field_errors }}
+
+            {% if active == "edit" and membership %}
+                <div class="form-row">
+                    <label>Source</label>
+                    <p>{{ membership.get_source_display }}</p>
+                    <small>Source is recorded when the membership is created and cannot be edited.</small>
+                </div>
+            {% endif %}
 
             {% for field in form %}
                 <div class="form-row">
@@ -62,7 +73,7 @@
                 </button>
 
                 <a
-                    href="{% url 'review_reviewer_pool' %}"
+                    href="{% if return_url %}{{ return_url }}{% else %}{% url 'review_reviewer_pool' %}{% endif %}"
                     class="button hollow"
                 >
                     Cancel
@@ -74,4 +85,3 @@
 </div>
 
 {% endblock body %}
-```

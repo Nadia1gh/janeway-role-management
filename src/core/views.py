@@ -1359,7 +1359,12 @@ def roles(request):
     """
     template = "core/manager/roles/roles.html"
 
-    roles = models.Role.objects.all().exclude(slug="reader")
+    roles = models.Role.objects.exclude(
+        slug__in=[
+            "reader",
+            "reviewer",
+        ]
+    )
     for role in roles:
         role.user_count = request.journal.users_with_role_count(role.slug)
 
@@ -1378,6 +1383,11 @@ def role(request, slug):
     :param slug: string, matches Role.slug
     :return: HttpResponse object
     """
+    if slug == "reviewer":
+        return redirect(
+            reverse("review_reviewer_pool")
+        )
+
     role_obj = get_object_or_404(models.Role, slug=slug)
 
     account_roles = models.AccountRole.objects.filter(
@@ -1440,10 +1450,59 @@ def role_action(request, slug, user_id, action):
     user = get_object_or_404(models.Account, pk=user_id)
     role_obj = get_object_or_404(models.Role, slug=slug)
 
+    if slug == "reviewer":
+        if action == "add":
+            logic.add_user_to_journal_role(
+                user,
+                slug,
+                request.journal,
+            )
+
+        elif action == "remove":
+            membership = (
+                review_models.ReviewerPoolMembership.objects.filter(
+                    account=user,
+                    journal=request.journal,
+                ).first()
+            )
+
+            if (
+                membership
+                and membership.status
+                != review_models.ReviewerPoolMembership.STATUS_BLOCKED
+            ):
+                membership.status = (
+                    review_models.ReviewerPoolMembership.STATUS_INACTIVE
+                )
+                membership.is_available = False
+                membership.save(
+                    update_fields=[
+                        "status",
+                        "is_available",
+                        "updated",
+                    ]
+                )
+
+            models.AccountRole.objects.filter(
+                user=user,
+                journal=request.journal,
+                role__slug="reviewer",
+            ).delete()
+
+        return redirect(
+            reverse("review_reviewer_pool")
+        )
+
     if action == "add":
-        user.add_account_role(role_slug=slug, journal=request.journal)
+        user.add_account_role(
+            role_slug=slug,
+            journal=request.journal,
+        )
     elif action == "remove":
-        user.remove_account_role(role_slug=slug, journal=request.journal)
+        user.remove_account_role(
+            role_slug=slug,
+            journal=request.journal,
+        )
 
     user.save()
 
@@ -1466,7 +1525,9 @@ def users(request):
     template = "core/manager/users/index.html"
     context = {
         "users": request.journal.journal_users(objects=True),
-        "roles": models.Role.objects.all().order_by(("name")),
+        "roles": models.Role.objects.exclude(
+            slug="reviewer",
+        ).order_by("name"),
     }
     return render(request, template, context)
 
@@ -1496,7 +1557,11 @@ def add_user(request):
                 new_user.add_account_role("author", request.journal)
 
             if role and request.journal:
-                new_user.add_account_role(role, request.journal)
+                logic.add_user_to_journal_role(
+                    new_user,
+                    role,
+                    request.journal,
+                )
 
             form = forms.EditAccountForm(request.POST, request.FILES, instance=new_user)
 
@@ -1666,8 +1731,11 @@ def enrol_users(request):
     last_name = request.GET.get("last_name", "")
     email = request.GET.get("email", "")
     assignable_roles = models.Role.objects.exclude(
-        slug__in=["reader"],
-    ).order_by(("name"))
+        slug__in=[
+            "reader",
+            "reviewer",
+        ],
+    ).order_by("name")
 
     # if the current user is not staff, exclude the journal-manager role.
     if not request.user.is_staff:
@@ -2718,7 +2786,8 @@ def manage_access_requests(request):
             decision = "approve"
 
             if request.journal:
-                access_request.user.add_account_role(
+                logic.add_user_to_journal_role(
+                    access_request.user,
                     access_request.role.slug,
                     request.journal,
                 )
@@ -3096,7 +3165,12 @@ class BaseUserList(GenericFacetedListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        roles = models.Role.objects.exclude(slug="reader")
+        roles = models.Role.objects.exclude(
+            slug__in=[
+                "reader",
+                "reviewer",
+            ]
+        )
         if not self.request.user.is_staff:
             roles = roles.exclude(slug="journal-manager")
         context["roles"] = roles
@@ -3128,20 +3202,63 @@ class BaseUserList(GenericFacetedListView):
             accountrole = core_models.AccountRole.objects.get(
                 pk=request.POST.get("remove_accountrole")
             )
+
+            if accountrole.role.slug == "reviewer":
+                membership = (
+                    review_models.ReviewerPoolMembership.objects.filter(
+                        account=accountrole.user,
+                        journal=accountrole.journal,
+                    ).first()
+                )
+
+                if (
+                    membership
+                    and membership.status
+                    != review_models.ReviewerPoolMembership.STATUS_BLOCKED
+                ):
+                    membership.status = (
+                        review_models.ReviewerPoolMembership.STATUS_INACTIVE
+                    )
+                    membership.is_available = False
+                    membership.save(
+                        update_fields=[
+                            "status",
+                            "is_available",
+                            "updated",
+                        ]
+                    )
+
             message = (
                 f"{accountrole.role} role removed "
                 f"from {accountrole.user} in {accountrole.journal.name}."
             )
             accountrole.delete()
             messages.success(request, message)
+
         elif "role" in request.POST:
             form = forms.AccountRoleForm(request.POST)
             if form.is_valid():
-                accountrole = form.save()
-                message = (
-                    f"{accountrole.role} role added "
-                    f"for {accountrole.user} in {accountrole.journal.name}."
-                )
+                role = form.cleaned_data["role"]
+                user = form.cleaned_data["user"]
+                journal = form.cleaned_data["journal"]
+
+                if role.slug == "reviewer":
+                    logic.add_user_to_journal_role(
+                        user,
+                        role.slug,
+                        journal,
+                    )
+                    message = (
+                        f"{role} role added "
+                        f"for {user} in {journal.name}."
+                    )
+                else:
+                    accountrole = form.save()
+                    message = (
+                        f"{accountrole.role} role added "
+                        f"for {accountrole.user} in {accountrole.journal.name}."
+                    )
+
                 messages.success(request, message)
 
         return super().post(request, *args, **kwargs)

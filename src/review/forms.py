@@ -542,6 +542,7 @@ class ReviewerPoolMembershipForm(forms.ModelForm):
         fields = (
             "status",
             "is_available",
+            "notes",
         )
         widgets = {
             "is_available": HTMLSwitchInput(),
@@ -554,7 +555,6 @@ class ReviewerPoolMembershipAddForm(forms.ModelForm):
         fields = (
             "account",
             "status",
-            "source",
             "is_available",
             "notes",
         )

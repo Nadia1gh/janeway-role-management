@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
+from core import logic as core_logic
 from core.models import AccountRole
 from review import logic
 from review.models import ReviewerPoolMembership
@@ -414,6 +415,50 @@ class TestReviewerPoolCandidates(TestCase):
             ReviewerPoolMembership.STATUS_ACTIVE,
         )
         self.assertTrue(membership.is_available)
+
+        self.assertFalse(
+            AccountRole.objects.filter(
+                user=self.pool_account,
+                journal=self.journal,
+                role__slug="reviewer",
+            ).exists()
+        )
+
+    def test_core_role_assignment_uses_pool_for_reviewer(self):
+        self.assertFalse(
+            AccountRole.objects.filter(
+                user=self.pool_account,
+                journal=self.journal,
+                role__slug="reviewer",
+            ).exists()
+        )
+
+        membership = core_logic.add_user_to_journal_role(
+            self.pool_account,
+            "reviewer",
+            self.journal,
+        )
+
+        self.assertIsNotNone(membership)
+        self.assertEqual(
+            membership.account,
+            self.pool_account,
+        )
+        self.assertEqual(
+            membership.journal,
+            self.journal,
+        )
+        self.assertEqual(
+            membership.status,
+            ReviewerPoolMembership.STATUS_ACTIVE,
+        )
+        self.assertEqual(
+            membership.source,
+            ReviewerPoolMembership.SOURCE_MANUAL,
+        )
+        self.assertTrue(
+            membership.is_available,
+        )
 
         self.assertFalse(
             AccountRole.objects.filter(
