@@ -162,4 +162,3 @@ class SendDigestEmailsCommandTests(TestCase):
             list(context["overdue_requests"]),
             [],
         )
-
