@@ -888,6 +888,28 @@ def handle_email_change(request, email_address, next_url=""):
 
     logout(request)
 
+def add_user_to_journal_role(user, role_slug, journal):
+    """
+    Adds a user to a journal role.
+
+
+    Reviewer membership is managed by ReviewerPoolMembership rather than
+    the legacy AccountRole model. Other journal roles continue to use
+    AccountRole.
+    """
+    if role_slug == "reviewer":
+        from review import logic as review_logic
+
+        return review_logic.ensure_reviewer_pool_membership(
+            user,
+            journal,
+            review_models.ReviewerPoolMembership.SOURCE_MANUAL,
+        )
+
+    return user.add_account_role(
+        role_slug,
+        journal,
+    )
 
 def handle_add_users_to_role(users, role, request):
     role = models.Role.objects.get(pk=role)
@@ -900,7 +922,11 @@ def handle_add_users_to_role(users, role, request):
         messages.add_message(request, messages.WARNING, "No role selected.")
 
     for user in users:
-        user.add_account_role(role.slug, request.journal)
+        add_user_to_journal_role(
+            user,
+            role.slug,
+            request.journal,
+        )
         messages.add_message(
             request,
             messages.INFO,

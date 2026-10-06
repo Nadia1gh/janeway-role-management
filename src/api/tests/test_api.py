@@ -32,7 +32,10 @@ class TestAPI(TestCase):
             is_active=True,
         )
         helpers.create_roles(
-            ["journal-manager"],
+            [
+                "journal-manager",
+                "reviewer",
+            ],
         )
         cls.api_client = APIClient()
 
@@ -88,4 +91,43 @@ class TestAPI(TestCase):
                 self.journal,
                 journal_manager_role,
             )
+        )
+
+    @override_settings(URL_CONFIG="domain")
+    def test_api_cannot_assign_reviewer_role(self):
+        self.api_client.force_authenticate(
+            user=self.staff_member,
+        )
+
+        url = self.journal.site_url(
+            reverse(
+                "accountrole-list",
+            )
+        )
+
+        reviewer_role = core_models.Role.objects.get(
+            slug="reviewer",
+        )
+
+        response = self.api_client.post(
+            path=url,
+            data={
+                "user": self.average_user.pk,
+                "role": reviewer_role.pk,
+                "journal": self.journal.pk,
+            },
+            SERVER_NAME=self.journal.domain,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+
+        self.assertFalse(
+            core_models.AccountRole.objects.filter(
+                user=self.average_user,
+                journal=self.journal,
+                role=reviewer_role,
+            ).exists()
         )

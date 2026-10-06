@@ -19,7 +19,7 @@
                 <div class="title-area">
                     <h2>1. Select Reviewer</h2>
                         <a href="{% if journal_settings.general.enable_one_click_access %}#{% else %}{% url 'core_add_user' %}?role=reviewer&return={{ request.path }}{% endif %}" class="button" data-open="reviewer"><i class="fa fa-plus">&nbsp;</i>Add New Reviewer</a>
-                        <a href="{% url 'core_manager_enrol_users' %}" class="button" target="_blank"><i class="fa fa-users">&nbsp;</i>Enroll Existing User</a>
+                        <a href="{% url 'review_add_reviewer_pool_member' %}?return={{ request.path|urlencode }}" class="button"><i class="fa fa-users">&nbsp;</i>Enroll Existing User</a>
                 </div>
                 <div class="content">
                     <div class="callout primary">
@@ -30,8 +30,8 @@
                                 section under 'Set Options'.
                                 If you cannot find the reviewer you want in
                                 this list you can use 'Enroll Existing User' to
-                                search the database and give users the Reviewer
-                                role, or 'Add New Reviewer' to create a new
+                                search for an existing account and add it to the
+                                Reviewer Pool, or 'Add New Reviewer' to create a new
                                 account for a reviewer (this process is silent,
                                 so they will not receive an account creation
                                 email).

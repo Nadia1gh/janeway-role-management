@@ -65,6 +65,8 @@ from utils.logger import get_logger
 from events import logic as event_logic
 from typesetting import models as typesetting_models
 
+from review import logic as review_logic
+
 logger = get_logger(__name__)
 
 
@@ -85,11 +87,50 @@ def home(request):
         request,
     )
 
+    # Keep Janeway's original homepage data and plugin hooks intact.
+    # The additional context below is only for the custom journal homepage.
+    published_articles = (
+        request.journal.published_articles
+        .select_related("section")
+        .prefetch_related("frozenauthor_set")
+    )
+
+    latest_articles = published_articles.order_by("-date_published")[:4]
+    most_read_articles = (
+        published_articles
+        .annotate(access_count=Count("articleaccess", distinct=True))
+        .order_by("-access_count", "-date_published")[:4]
+    )
+    most_cited_articles = (
+        published_articles
+        .annotate(
+            article_cites=Count("articlelink", distinct=True),
+            book_cites=Count("booklink", distinct=True),
+        )
+        .order_by("-article_cites", "-book_cites", "-date_published")[:4]
+    )
+
+    current_issue = request.journal.current_issue
+    current_issue_articles = (
+        current_issue.get_sorted_articles()[:4] if current_issue else []
+    )
+
+    editorial_groups = core_models.EditorialGroup.objects.filter(
+        journal=request.journal,
+    ).prefetch_related("editorialgroupmember_set__user")
+
     template = "journal/index.html"
     context = {
+        # Existing Janeway context — deliberately retained.
         "homepage_elements": homepage_elements,
         "issues": issues_objects,
         "sections": sections,
+        # New custom-homepage context.
+        "latest_articles": latest_articles,
+        "most_read_articles": most_read_articles,
+        "most_cited_articles": most_cited_articles,
+        "current_issue_articles": current_issue_articles,
+        "editorial_groups": editorial_groups,
     }
 
     # call all registered plugin block hooks to get relevant contexts
@@ -110,7 +151,6 @@ def home(request):
                     pass
 
     return render(request, template, context)
-
 
 @has_journal
 def serve_journal_cover(request):
@@ -2031,16 +2071,17 @@ def publication_schedule(request):
 @decorators.frontend_enabled
 def become_reviewer(request):
     """
-    If a user is signed in and not a reviewer, lets them become one, otherwsie asks them to login/tells them they
-    are already a reviewer
+    If a user is signed in and not a reviewer, lets them become one, otherwise
+    tells them they are already a reviewer.
+
     :param request: django request object
     :return: a contextualised django template
     """
 
-    # The user needs to login before we can do anything else
     code = "not-logged-in"
     message = _(
-        "You must login before you can become a reviewer. Click the button below to login."
+        "You must login before you can become a reviewer. "
+        "Click the button below to login."
     )
 
     if (
@@ -2048,10 +2089,10 @@ def become_reviewer(request):
         and request.user.is_authenticated
         and not request.user.is_reviewer(request)
     ):
-        # We have a user, they are logged in and not yet a reviewer
         code = "not-reviewer"
         message = _(
-            "You are not yet a reviewer for this journal. Click the button below to become a reviewer."
+            "You are not yet a reviewer for this journal. "
+            "Click the button below to become a reviewer."
         )
 
     elif (
@@ -2059,17 +2100,33 @@ def become_reviewer(request):
         and request.user.is_authenticated
         and request.user.is_reviewer(request)
     ):
-        # The user is logged in, and is already a reviewer
         code = "already-reviewer"
         message = _("You are already a reviewer.")
 
     if request.POST.get("action", None) == "go":
-        request.user.add_account_role("reviewer", request.journal)
-        messages.add_message(
-            request,
-            messages.SUCCESS,
-            _("You are now a reviewer"),
+        membership = review_logic.ensure_reviewer_pool_membership(
+            request.user,
+            request.journal,
+            review_models.ReviewerPoolMembership.SOURCE_SELF_ENROLLMENT,
         )
+
+        if (
+            membership
+            and membership.status
+            == review_models.ReviewerPoolMembership.STATUS_ACTIVE
+        ):
+            messages.add_message(
+                request,
+                messages.SUCCESS,
+                _("You are now a reviewer"),
+            )
+        else:
+            messages.add_message(
+                request,
+                messages.WARNING,
+                _("Your reviewer status could not be activated."),
+            )
+
         return redirect(reverse("core_dashboard"))
 
     template = "journal/become_reviewer.html"
@@ -2079,7 +2136,6 @@ def become_reviewer(request):
     }
 
     return render(request, template, context)
-
 
 def contact(request):
     """

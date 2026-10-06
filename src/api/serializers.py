@@ -329,16 +329,16 @@ class AccountRoleSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         request = self.context.get("request", None)
-        role = data.get("role")
+        role = data.get("role", getattr(self.instance, "role", None),)
 
-        excluded_roles = ["reader"]
+        excluded_roles = ["reader", "reviewer",]
 
         # if the current user is not staff add the journal-manager role to
         # the list of excluded roles.
         if not request or not request.user.is_staff:
             excluded_roles.append("journal-manager")
 
-        if role.slug in excluded_roles:
+        if role and role.slug in excluded_roles:
             raise serializers.ValidationError(
                 {"error": "You cannot add a user to that role via the API."}
             )

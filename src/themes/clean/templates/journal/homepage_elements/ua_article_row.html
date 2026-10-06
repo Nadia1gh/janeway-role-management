@@ -1,0 +1,45 @@
+{% load i18n %}
+<article class="ua-article-row">
+    <div class="ua-article-main">
+        <a class="ua-article-title" href="{% if article.is_remote %}{{ article.remote_url }}{% else %}{{ article.url }}{% endif %}"{% if article.is_remote %} target="_blank" rel="noopener noreferrer"{% endif %}>
+            {{ article.title|safe }}
+        </a>
+
+        {% if article.section %}
+            <div class="ua-article-type">{{ article.section.name }}</div>
+        {% endif %}
+
+        {% if article.abstract %}
+            <p class="ua-article-abstract">{{ article.abstract|striptags|truncatechars:280 }}</p>
+        {% endif %}
+
+        <div class="ua-article-authors">{{ article.author_list }}</div>
+
+        {% with doi=article.get_doi %}
+            <div class="ua-article-meta">
+                {% if doi %}
+                    <span class="ua-doi" aria-label="DOI">doi</span>
+                    <a href="https://doi.org/{{ doi }}" target="_blank" rel="noopener noreferrer">https://doi.org/{{ doi }}</a>
+                {% endif %}
+                {% if show_citations %}
+                    <span class="ua-citation-count">{{ article.article_cites|default:0|add:article.book_cites|default:0 }} citations</span>
+                {% endif %}
+            </div>
+        {% endwith %}
+
+        <div class="ua-article-actions">
+            <a class="ua-btn ua-btn-primary ua-btn-small" href="{{ article.url }}">{% trans "Full Article" %}</a>
+            {% for galley in article.galley_set.all %}
+                {% if galley.file.mime_type == 'application/pdf' and galley.public %}
+                    <a class="ua-btn ua-btn-outline ua-btn-small" href="{% url 'article_download_galley' article.id galley.id %}">
+                        <span aria-hidden="true">▣</span> PDF
+                    </a>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if article.date_published %}
+        <time class="ua-article-date" datetime="{{ article.date_published|date:'Y-m-d' }}">{{ article.date_published|date:"F j, Y" }}</time>
+    {% endif %}
+</article>

@@ -1,95 +1,112 @@
 {% load i18n %}
 {% load next_url %}
-<div class="row">
-    <div class="col-md-6">
-        <small><div class="text-left">
-            <ul class="list-inline">
-            {% if request.journal.issn %}<li class="list-inline-item">ISSN: {{ request.journal.issn }}</li>{% endif %}
-            {% if request.journal.print_issn %}<li class="list-inline-item"> {% trans 'Print ISSN' %}: {{ request.journal.print_issn }}</li>{% endif %}
-            {% if journal_settings.general.publisher_name %}
-                <li class="list-inline-item">
-                    <span id="pub-by"> {% trans 'Published by' %}</span>
-                    {% if journal_settings.general.publisher_url %}
-                        <a href="{{ journal_settings.general.publisher_url }}"
-                            id="pub-link"
-                            aria-labelledby="pub-by pub-link"
-                            >
-                            {{ journal_settings.general.publisher_name }}
-                        </a>
+{% load svg from press_url %}
+{% load svg_or_image from press_url %}
+
+<div class="ua-site-footer">
+    <div class="ua-footer-inner">
+        <div class="ua-footer-grid">
+            <div class="ua-footer-brand-col">
+                <div class="ua-footer-brand">
+                    {% if request.journal.press_image_override %}
+                        {% get_alt_text file_path=request.journal.press_image_override default=request.press.name as press_alt %}
+                        {% svg_or_image request.journal.press_image_override "img-fluid" alt_text=press_alt %}
                     {% else %}
-                        {{ journal_settings.general.publisher_name }}
+                        {% svg request.press_cover %}
                     {% endif %}
-                </li>
+                </div>
+                <div class="ua-footer-tagline">Knowledge Beyond Boundaries</div>
+            </div>
+
+            <div>
+                <h3 class="ua-footer-title">{% trans "Useful links" %}</h3>
+                <ul class="ua-footer-links">
+                    {% if not journal_settings.general.disable_journal_submission %}
+                        <li><a href="{% url 'submission_start' %}">{% trans "Submit Manuscript" %}</a></li>
+                    {% endif %}
+                    <li><a href="{% url 'cms_page' 'about' %}">{% trans "About" %}</a></li>
+                    <li><a href="{% url 'journal_issues' %}">{% trans "Archive" %}</a></li>
+                    {% if journal_settings.general.enable_editorial_display %}
+                        <li><a href="{% url 'editorial_team' %}">{{ journal_settings.styling.editorial_group_page_name|default:_('Editorial Board') }}</a></li>
+                    {% endif %}
+                    <li><a href="{% url 'contact' %}">{% trans "Contact us" %}</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="ua-footer-title">{% trans "Guides & Policies" %}</h3>
+                <ul class="ua-footer-links">
+                    {% for item in journal.press.navigation_items %}
+                        {% if item.for_footer and item.extend_to_journals %}
+                            <li>
+                                {% if item.is_external %}
+                                    <a href="{{ item.link }}" target="_blank" rel="noopener noreferrer">{{ item.link_name }}</a>
+                                {% else %}
+                                    <a href="{{ item.link }}">{{ item.link_name }}</a>
+                                {% endif %}
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if journal_settings.general.privacy_policy_url %}
+                        <li><a href="{{ journal_settings.general.privacy_policy_url }}">{% trans "Privacy Policy" %}</a></li>
+                    {% else %}
+                        <li><a href="{% url 'cms_page' 'privacy' %}">{% trans "Privacy Policy" %}</a></li>
+                    {% endif %}
+                    <li><a href="{% url 'accessibility' %}">{% trans "Accessibility" %}</a></li>
+                </ul>
+            </div>
+
+            <div class="ua-footer-contact-col">
+                <h3 class="ua-footer-title">{% trans "Contact" %}</h3>
+                <div class="ua-footer-contact">
+                    {% if journal_settings.general.contact_info %}
+                        <div>{{ journal_settings.general.contact_info|safe }}</div>
+                    {% endif %}
+                    {% if request.press.main_contact %}
+                        <span class="ua-footer-contact-label">Email</span>
+                        <a href="mailto:{{ request.press.main_contact }}">{{ request.press.main_contact }}</a>
+                    {% endif %}
+                    {% if request.journal.issn %}
+                        <span class="ua-footer-contact-label">{% trans "ISSN" %}</span>
+                        <span>{{ request.journal.issn }}</span>
+                    {% endif %}
+                    {% if request.journal.print_issn %}
+                        <span class="ua-footer-contact-label">{% trans "Print ISSN" %}</span>
+                        <span>{{ request.journal.print_issn }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="ua-footer-divider"></div>
+
+        <div class="ua-footer-bottom">
+            <div>© {% now "Y" %} {{ request.journal.name }}, {% trans "All rights reserved." %}</div>
+            {% if not request.user.is_authenticated %}
+                <ul class="ua-footer-legal">
+                    <li><a href="{% url 'core_login' %}">{% trans "Log in" %}</a></li>
+                </ul>
             {% endif %}
-            </ul>
-        </div></small>
-    </div>
-    <div class="col-md-6 text-right">
-        <small>
-            <ul class="list-inline">
-                {% for item in journal.press.navigation_items %}
-                    {% if item.for_footer and item.extend_to_journals %}
-                        <li>
-                            {% if item.is_external %}
-                                <a href="{{ item.link }}" target="_blank">
-                                    {{ item.link_name }}
-                                    {% include "elements/icons/link_external.html" %}
-                                </a>
-                            {% else %}
-                                <a href="{{ item.link }}">
-                                    {{ item.link_name }}
-                                </a>
-                            {% endif %}
-                        </li>
-                    {% endif %}
-                {% endfor %}
-                {% if journal_settings.general.privacy_policy_url %}
-                    <li><a
-                            href="{{ journal_settings.general.privacy_policy_url }}">{% trans "Privacy Policy" %}</a>
-                    </li>
-                {% else %}
-                    <li><a
-                            href="{% url 'cms_page' 'privacy' %}">{% trans "Privacy Policy" %}</a></li>
-                {% endif %}
-                <li><a href="{% url 'contact' %}">{% trans "Contact" %}</a></li>
-                <li><a href="{% url 'accessibility' %}">{% trans "Accessibility" %}</a></li>
-                {% if not request.user.is_authenticated %}
-                  <li>
-                    <a href="{% url 'core_login' %}">
-                      {% trans 'Log in' %}
-                    </a>
-                  </li>
-                {% endif %}
-                {% if journal_settings.general.switch_language %}
-                    <li>
-                        <form action="{% url 'set_language' %}" method="post">{% csrf_token %}
-                            <input name="next" type="hidden" value="{{ request.PATH }}"/>
-                            <select name="language" onchange="this.form.submit()" autocomplete="off">
-                                {% get_current_language as LANGUAGE_CODE %}
-                                {% get_available_languages as LANGUAGES %}
-                                {% get_language_info_list for LANGUAGES as languages %}
-                                {% for language in languages %}
-                                    {% if language.code in request.available_languages %}
-                                    <option value="{{ language.code }}"{% if language.code == LANGUAGE_CODE %}
-                                            selected{% endif %}>
+            {% if journal_settings.general.switch_language %}
+                <div class="ua-footer-language">
+                    <form action="{% url 'set_language' %}" method="post">
+                        {% csrf_token %}
+                        <input name="next" type="hidden" value="{{ request.PATH }}" />
+                        <select name="language" onchange="this.form.submit()" autocomplete="off">
+                            {% get_current_language as LANGUAGE_CODE %}
+                            {% get_available_languages as LANGUAGES %}
+                            {% get_language_info_list for LANGUAGES as languages %}
+                            {% for language in languages %}
+                                {% if language.code in request.available_languages %}
+                                    <option value="{{ language.code }}"{% if language.code == LANGUAGE_CODE %} selected{% endif %}>
                                         {{ language.name_local }} ({{ language.code }})
                                     </option>
-                                    {% endif %}
-                                {% endfor %}
-                            </select>
-                        </form>
-                    </li>
-                {% endif %}
-            </ul>
-            </small>
-    </div>
-</div>
-{% if request.journal.press.journal_footer_text %}
-    <div class="row">
-        <div id="presswide_footer_text" class="col text-left">
-            <small>
-                {{ request.journal.press.journal_footer_text|safe }}
-            </small>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+            {% endif %}
         </div>
     </div>
-{% endif %}
+</div>

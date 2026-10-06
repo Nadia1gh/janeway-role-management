@@ -10,8 +10,14 @@ from utils.testing import helpers
 from utils import setting_handler
 from core import models as core_models
 from submission import models as submission_models
+from review import models as review_models
 
-
+@override_settings(
+    ALLOWED_HOSTS=[
+        "testserver",
+        "fetesting.janeway.systems",
+    ]
+)
 class TestJournalSite(TestCase):
     def setUp(self):
         self.press = Press(domain="sitetestpress.org")
@@ -148,8 +154,71 @@ class TestJournalSite(TestCase):
             SERVER_NAME=self.journal_domain,
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(self.new_user.check_role(self.journal, "reviewer"))
 
+        membership = review_models.ReviewerPoolMembership.objects.get(
+            account=self.new_user,
+            journal=self.journal,
+        )
+
+        self.assertEqual(
+            membership.status,
+            review_models.ReviewerPoolMembership.STATUS_ACTIVE,
+        )
+        self.assertEqual(
+            membership.source,
+            review_models.ReviewerPoolMembership.SOURCE_SELF_ENROLLMENT,
+        )
+        self.assertTrue(membership.is_available)
+
+        self.assertFalse(
+            core_models.AccountRole.objects.filter(
+                user=self.new_user,
+                journal=self.journal,
+                role__slug="reviewer",
+            ).exists()
+        )
+
+    def test_blocked_reviewer_cannot_self_activate(self):
+        review_models.ReviewerPoolMembership.objects.create(
+            account=self.new_user,
+            journal=self.journal,
+            status=review_models.ReviewerPoolMembership.STATUS_BLOCKED,
+            source=review_models.ReviewerPoolMembership.SOURCE_MANUAL,
+            is_available=False,
+        )
+
+        self.client.force_login(self.new_user)
+
+        self.client.post(
+            reverse("become_reviewer"),
+            data={
+                "action": "go",
+            },
+            SERVER_NAME=self.journal_domain,
+        )
+
+        membership = review_models.ReviewerPoolMembership.objects.get(
+            account=self.new_user,
+            journal=self.journal,
+        )
+
+        self.assertEqual(
+            membership.status,
+            review_models.ReviewerPoolMembership.STATUS_BLOCKED,
+        )
+        self.assertEqual(
+            membership.source,
+            review_models.ReviewerPoolMembership.SOURCE_MANUAL,
+        )
+        self.assertFalse(membership.is_available)
+
+        self.assertFalse(
+            core_models.AccountRole.objects.filter(
+                user=self.new_user,
+                journal=self.journal,
+                role__slug="reviewer",
+            ).exists()
+        )
     def test_collection_page(self):
         response = self.client.get(
             reverse(

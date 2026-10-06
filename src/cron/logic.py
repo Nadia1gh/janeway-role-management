@@ -82,14 +82,21 @@ def process_revision_digest(journal, user_role):
     return render_template.get_requestless_content(context, journal, "revision_digest")
 
 
-def process_reviewer_digest(journal, user_role):
+def process_reviewer_digest(journal, user_or_role):
+    # Reviewer Pool memberships do not have an AccountRole object, while
+    # legacy reviewer digests still may. Accept either and normalize to the
+    # underlying account.
+    user = getattr(user_or_role, "user", user_or_role)
+
     pending_requests = review_models.ReviewAssignment.objects.filter(
-        reviewer=user_role.user,
+        reviewer=user,
+        article__journal=journal,
         date_complete__isnull=True,
         date_due__gte=timezone.now(),
     )
     overdue_requests = review_models.ReviewAssignment.objects.filter(
-        reviewer=user_role.user,
+        reviewer=user,
+        article__journal=journal,
         date_complete__isnull=True,
         date_due__lte=timezone.now(),
     )

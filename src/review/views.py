@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.http import Http404
 from django.core.exceptions import PermissionDenied
@@ -34,6 +35,7 @@ from review.const import (
     ReviewerDecisions as RD,
 )
 from security.decorators import (
+    editor_or_journal_manager_required,
     editor_user_required,
     reviewer_user_required,
     reviewer_user_for_assignment_required,
@@ -49,7 +51,13 @@ from security.decorators import (
     user_has_completed_review_for_article,
 )
 from submission import models as submission_models, forms as submission_forms
-from utils import models as util_models, ithenticate, shared, setting_handler
+from utils import (
+    ithenticate,
+    logic as utils_logic,
+    models as util_models,
+    setting_handler,
+    shared,
+)
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -1233,7 +1241,11 @@ def add_review_assignment(request, article_id):
                 user = core_models.Account.objects.get(
                     email=new_reviewer_form.data["email"]
                 )
-                user.add_account_role("reviewer", request.journal)
+                logic.ensure_reviewer_pool_membership(
+                    user,
+                    request.journal,
+                    models.ReviewerPoolMembership.SOURCE_MANUAL,
+                )
             except core_models.Account.DoesNotExist:
                 user = None
 
@@ -2922,6 +2934,159 @@ def review_forms(request):
     }
 
     return render(request, template, context)
+
+
+def _reviewer_pool_return_url(request):
+    return_url = (
+        request.POST.get("return")
+        or request.GET.get("return")
+        or ""
+    )
+
+    if not return_url:
+        return ""
+
+    if not url_has_allowed_host_and_scheme(
+        return_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return ""
+
+    return return_url
+
+
+@editor_or_journal_manager_required
+def reviewer_pool(request):
+    """
+    Displays the reviewer pool for the current journal.
+    """
+    memberships = (
+        models.ReviewerPoolMembership.objects.filter(
+            journal=request.journal,
+        )
+        .select_related("account", "journal")
+        .order_by(
+            "status",
+            "account__last_name",
+            "account__first_name",
+            "account__email",
+        )
+    )
+
+    template = "review/manager/reviewer_pool.html"
+    context = {
+        "memberships": memberships,
+    }
+
+    return render(request, template, context)
+
+
+@editor_or_journal_manager_required
+def add_reviewer_pool_member(request):
+    """
+    Adds an existing account to the reviewer pool for the current journal.
+    """
+    return_url = _reviewer_pool_return_url(request)
+    form = forms.ReviewerPoolMembershipAddForm(
+        initial={
+            "status": models.ReviewerPoolMembership.STATUS_ACTIVE,
+            "is_available": True,
+        }
+    )
+
+    if request.method == "POST":
+        form = forms.ReviewerPoolMembershipAddForm(request.POST)
+
+        if form.is_valid():
+            account = form.cleaned_data["account"]
+
+            if models.ReviewerPoolMembership.objects.filter(
+                account=account,
+                journal=request.journal,
+            ).exists():
+                form.add_error(
+                    "account",
+                    "This account is already in the reviewer pool.",
+                )
+            else:
+                membership = form.save(commit=False)
+                membership.journal = request.journal
+                membership.source = (
+                    models.ReviewerPoolMembership.SOURCE_MANUAL
+                )
+                membership.save()
+
+                messages.add_message(
+                    request,
+                    messages.SUCCESS,
+                    "Reviewer pool member added.",
+                )
+
+                if return_url:
+                    return redirect(
+                        utils_logic.add_query_parameters_to_url(
+                            return_url,
+                            {
+                                "user": account.email,
+                                "id": account.pk,
+                            },
+                        )
+                    )
+
+                return redirect(reverse("review_reviewer_pool"))
+
+    template = "review/manager/reviewer_pool_edit.html"
+    context = {
+        "form": form,
+        "active": "add",
+        "return_url": return_url,
+    }
+
+    return render(request, template, context)
+
+
+@editor_or_journal_manager_required
+def edit_reviewer_pool_member(request, membership_id):
+    """
+    Updates a reviewer pool membership belonging to the current journal.
+    """
+    membership = get_object_or_404(
+        models.ReviewerPoolMembership,
+        pk=membership_id,
+        journal=request.journal,
+    )
+
+    form = forms.ReviewerPoolMembershipForm(
+        instance=membership,
+    )
+
+    if request.method == "POST":
+        form = forms.ReviewerPoolMembershipForm(
+            request.POST,
+            instance=membership,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            messages.add_message(
+                request,
+                messages.SUCCESS,
+                "Reviewer pool member updated.",
+            )
+
+            return redirect(reverse("review_reviewer_pool"))
+
+    template = "review/manager/reviewer_pool_edit.html"
+    context = {
+        "form": form,
+        "membership": membership,
+        "active": "edit",
+    }
+
+    return render(request, template, context)
+
 
 
 @senior_editor_user_required

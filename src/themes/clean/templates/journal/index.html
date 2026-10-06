@@ -1,29 +1,662 @@
 {% extends "core/base.html" %}
-{% load truncate %}
+{% load static i18n %}
+
+
+{% block title %}
+    {{ request.journal.name }}
+{% endblock title %}
+
+
+{% block head %}
+    {{ block.super }}
+
+    <meta
+        name="description"
+        content="{{ request.journal.description|striptags|truncatechars:160 }}"
+    >
+{% endblock head %}
+
+
+{% block css %}
+    {{ block.super }}
+
+    <link
+        href="{% static 'clean/css/homepage_custom.css' %}"
+        rel="stylesheet"
+    >
+{% endblock css %}
+
 
 {% block body %}
-    <h1 class="sr-only">{{ request.journal.name }} {% trans 'Home Page' %} </h1>
-    {% for element in homepage_elements %}
-    <div class="homepage-element-wrapper homepage-element-{{ element.name|slugify }}">
-        {% include element.template_path %}
-    </div>
-        <hr aria-hidden="true" />
+
+<div
+    id="ua-homepage"
+    class="ua-homepage"
+>
+
+
+    <!-- ===================================================== -->
+    <!-- Hero -->
+    <!-- ===================================================== -->
+
+    <section
+        class="ua-hero"
+        aria-labelledby="ua-journal-title"
+    >
+
+        <div class="ua-hero-copy">
+
+            <div class="ua-open-access">
+                <span aria-hidden="true">●</span>
+                {% trans "Open Access" %}
+            </div>
+
+
+            <h1 id="ua-journal-title">
+                {{ request.journal.name }}
+            </h1>
+
+
+            <p class="ua-tagline">
+                {{ request.journal.description|safe }}
+            </p>
+
+
+            <div class="ua-actions">
+
+                {% if not journal_settings.general.disable_journal_submission %}
+
+                    <a
+                        class="ua-btn ua-btn-primary"
+                        href="{% url 'submission_start' %}"
+                    >
+                        {% trans "Submit Manuscript" %}
+                    </a>
+
+                {% endif %}
+
+
+                <a
+                    class="ua-btn ua-btn-outline"
+                    href="{% url 'cms_page' 'about' %}"
+                >
+                    {% trans "About this journal" %}
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <div class="ua-hero-cover">
+
+            {% if request.journal.default_cover_image %}
+
+                <img
+                    src="{{ request.journal.default_cover_image.url }}"
+                    alt="{{ request.journal.name }} cover"
+                    loading="eager"
+                >
+
+            {% elif request.journal.thumbnail_image %}
+
+                <img
+                    src="{{ request.journal.thumbnail_image.url }}"
+                    alt="{{ request.journal.name }}"
+                    loading="eager"
+                >
+
+            {% endif %}
+
+
+            {% if request.journal.issn %}
+
+                <div class="ua-issn">
+                    ISSN {{ request.journal.issn }}
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </section>
+
+
+    <!-- ===================================================== -->
+    <!-- Stats -->
+    <!-- ===================================================== -->
+
+    <section
+        class="ua-stats"
+        aria-label="{% trans 'Journal metrics' %}"
+    >
+
+        <div class="ua-stat">
+            <strong>2.1</strong>
+            <span>{% trans "Impact Factor" %}</span>
+        </div>
+
+
+        <div class="ua-stat">
+            <strong>4.5</strong>
+            <span>{% trans "CiteScore" %}</span>
+        </div>
+
+
+        <div class="ua-stat">
+            <strong>18%</strong>
+            <span>{% trans "Acceptance Rate" %}</span>
+        </div>
+
+
+        <div class="ua-stat">
+            <strong>21 days</strong>
+            <span>{% trans "Review Speed" %}</span>
+        </div>
+
+
+        <div class="ua-stat">
+            <strong>Free</strong>
+            <span>{% trans "APC" %}</span>
+        </div>
+
+    </section>
+
+
+    <!-- ===================================================== -->
+    <!-- Editor-in-Chief -->
+    <!-- ===================================================== -->
+
+    {% for group in editorial_groups %}
+
+        {% if group.name|lower == 'editor-in-chief' and group.editorialgroupmember_set.all %}
+
+            <section
+                class="ua-editor-card"
+                aria-labelledby="ua-eic-title"
+            >
+
+                <div class="ua-section-topline">
+
+                    <h2 id="ua-eic-title">
+                        {% trans "Editor-in-Chief" %}
+                    </h2>
+
+
+                    <a href="{% url 'editorial_team' %}">
+                        {% trans "View All" %}
+                    </a>
+
+                </div>
+
+
+                {% for member in group.editorialgroupmember_set.all|slice:":1" %}
+
+                    <div class="ua-eic-body">
+
+                        <div class="ua-eic-photo">
+
+                            {% include "common/elements/profile_image.html" with user=member.user classes="img-fluid" %}
+
+                        </div>
+
+
+                        <div class="ua-eic-copy">
+
+                            <h3>
+                                {{ member.user.full_name }}
+                            </h3>
+
+
+                            {% if member.user.affiliation %}
+
+                                <p>
+                                    {{ member.user.affiliation }}
+                                </p>
+
+                            {% endif %}
+
+
+                            {% if member.user.orcid %}
+
+                                <a
+                                    class="ua-orcid"
+                                    href="https://orcid.org/{{ member.user.orcid }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+
+                                    <span aria-hidden="true">
+                                        iD
+                                    </span>
+
+                                    {% trans "ORCID profile" %}
+
+                                </a>
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                {% endfor %}
+
+            </section>
+
+        {% endif %}
+
     {% endfor %}
 
+
+    <!-- ===================================================== -->
+    <!-- Editor's Choice -->
+    <!-- ===================================================== -->
+
+    <section
+        class="ua-featured-card"
+        aria-labelledby="ua-featured-title"
+    >
+
+        <div class="ua-section-topline ua-featured-topline">
+
+            <h2 id="ua-featured-title">
+                {% trans "Editor's choice" %}
+            </h2>
+
+
+            {% if featured_articles.0.article.date_published %}
+
+                <span>
+                    {{ featured_articles.0.article.date_published|date:"F j, Y" }}
+                </span>
+
+            {% elif latest_articles.0.date_published %}
+
+                <span>
+                    {{ latest_articles.0.date_published|date:"F j, Y" }}
+                </span>
+
+            {% endif %}
+
+        </div>
+
+
+        {% if featured_articles.0.article %}
+
+            {% with selected=featured_articles.0.article %}
+
+                <h3>
+                    {{ selected.title|safe }}
+                </h3>
+
+
+                {% if selected.abstract %}
+
+                    <p>
+                        {{ selected.abstract|striptags|truncatechars:520 }}
+                    </p>
+
+                {% endif %}
+
+
+                <div class="ua-byline">
+                    {{ selected.author_list }}
+                </div>
+
+
+                <div class="ua-featured-actions">
+
+                    <a
+                        class="ua-btn ua-btn-primary ua-btn-small"
+                        href="{{ selected.url }}"
+                    >
+                        {% trans "Read full text" %}
+                    </a>
+
+
+                    <a
+                        class="ua-btn ua-btn-outline ua-btn-small"
+                        href="{{ selected.url }}#abstract"
+                    >
+                        {% trans "Abstract" %}
+                    </a>
+
+                </div>
+
+            {% endwith %}
+
+
+        {% elif latest_articles.0 %}
+
+            {% with selected=latest_articles.0 %}
+
+                <h3>
+                    {{ selected.title|safe }}
+                </h3>
+
+
+                {% if selected.abstract %}
+
+                    <p>
+                        {{ selected.abstract|striptags|truncatechars:520 }}
+                    </p>
+
+                {% endif %}
+
+
+                <div class="ua-byline">
+                    {{ selected.author_list }}
+                </div>
+
+
+                <div class="ua-featured-actions">
+
+                    <a
+                        class="ua-btn ua-btn-primary ua-btn-small"
+                        href="{{ selected.url }}"
+                    >
+                        {% trans "Read full text" %}
+                    </a>
+
+
+                    <a
+                        class="ua-btn ua-btn-outline ua-btn-small"
+                        href="{{ selected.url }}#abstract"
+                    >
+                        {% trans "Abstract" %}
+                    </a>
+
+                </div>
+
+            {% endwith %}
+
+
+        {% else %}
+
+            <p class="ua-empty">
+                {% trans "No article is available yet." %}
+            </p>
+
+        {% endif %}
+
+
+        <div
+            class="ua-carousel-dots"
+            aria-hidden="true"
+        >
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+
+    </section>
+
+
+    <!-- ===================================================== -->
+    <!-- Article Tabs -->
+    <!-- ===================================================== -->
+
+    <section
+        class="ua-tabs-section"
+        aria-label="{% trans 'Article collections' %}"
+    >
+
+        <div
+            class="ua-tabs"
+            role="tablist"
+            aria-label="{% trans 'Article collections' %}"
+        >
+
+            <button
+                class="ua-tab is-active"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                aria-controls="ua-panel-current"
+                data-panel="ua-panel-current"
+            >
+                {% trans "Current Issues" %}
+            </button>
+
+
+            <button
+                class="ua-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="ua-panel-latest"
+                data-panel="ua-panel-latest"
+            >
+                {% trans "Latest Articles" %}
+            </button>
+
+
+            <button
+                class="ua-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="ua-panel-read"
+                data-panel="ua-panel-read"
+            >
+                {% trans "Most Read" %}
+            </button>
+
+
+            <button
+                class="ua-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="ua-panel-cited"
+                data-panel="ua-panel-cited"
+            >
+                {% trans "Most Cited" %}
+            </button>
+
+        </div>
+
+
+        <!-- Current Issues -->
+
+        <div
+            id="ua-panel-current"
+            class="ua-tab-panel is-active"
+            role="tabpanel"
+        >
+
+            {% for article in current_issue_articles %}
+
+                {% include "journal/homepage_elements/ua_article_row.html" with article=article %}
+
+            {% empty %}
+
+                <p class="ua-empty">
+                    {% trans "No current issue is available." %}
+                </p>
+
+            {% endfor %}
+
+        </div>
+
+
+        <!-- Latest Articles -->
+
+        <div
+            id="ua-panel-latest"
+            class="ua-tab-panel"
+            role="tabpanel"
+            hidden
+        >
+
+            {% for article in latest_articles %}
+
+                {% include "journal/homepage_elements/ua_article_row.html" with article=article %}
+
+            {% empty %}
+
+                <p class="ua-empty">
+                    {% trans "No published articles are available." %}
+                </p>
+
+            {% endfor %}
+
+        </div>
+
+
+        <!-- Most Read -->
+
+        <div
+            id="ua-panel-read"
+            class="ua-tab-panel"
+            role="tabpanel"
+            hidden
+        >
+
+            {% for article in most_read_articles %}
+
+                {% include "journal/homepage_elements/ua_article_row.html" with article=article %}
+
+            {% empty %}
+
+                <p class="ua-empty">
+                    {% trans "No reading data is available yet." %}
+                </p>
+
+            {% endfor %}
+
+        </div>
+
+
+        <!-- Most Cited -->
+
+        <div
+            id="ua-panel-cited"
+            class="ua-tab-panel"
+            role="tabpanel"
+            hidden
+        >
+
+            {% for article in most_cited_articles %}
+
+                {% include "journal/homepage_elements/ua_article_row.html" with article=article show_citations=True %}
+
+            {% empty %}
+
+                <p class="ua-empty">
+                    {% trans "No citation data is available yet." %}
+                </p>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+
+    <!-- ===================================================== -->
+    <!-- Indexed In -->
+    <!-- ===================================================== -->
+
+    <section
+        class="ua-indexed"
+        aria-labelledby="ua-indexed-title"
+    >
+
+        <h2 id="ua-indexed-title">
+            {% trans "Indexed In" %}
+        </h2>
+
+
+        <div class="ua-index-grid">
+
+            <span>
+                Scopus
+            </span>
+
+            <span>
+                DOAJ
+            </span>
+
+            <span>
+                WEB OF SCIENCE
+            </span>
+
+            <span>
+                SJR
+            </span>
+
+            <span>
+                <b>Google</b>Scholar
+            </span>
+
+            <span>
+                ESCI
+                <small>Clarivate</small>
+            </span>
+
+        </div>
+
+    </section>
+
+</div>
+
 {% endblock body %}
+
+
 {% block js %}
-<script type="text/javascript">
-$(function () {
-    $('#carousel').carousel({
-        interval:5000,
-        pause: "false"
-    });
-    $('#carousel-play').click(function () {
-        $('#carousel').carousel('cycle');
-    });
-    $('#carousel-pause').click(function () {
-        $('#carousel').carousel('pause');
-    });
-});
-</script>
+
+    {{ block.super }}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const tabs = document.querySelectorAll('.ua-tab');
+            const panels = document.querySelectorAll('.ua-tab-panel');
+
+            tabs.forEach(function (tab) {
+
+                tab.addEventListener('click', function () {
+
+                    const target = tab.dataset.panel;
+
+
+                    tabs.forEach(function (item) {
+
+                        const active = item === tab;
+
+                        item.classList.toggle(
+                            'is-active',
+                            active
+                        );
+
+                        item.setAttribute(
+                            'aria-selected',
+                            active ? 'true' : 'false'
+                        );
+
+                    });
+
+
+                    panels.forEach(function (panel) {
+
+                        const active = panel.id === target;
+
+                        panel.classList.toggle(
+                            'is-active',
+                            active
+                        );
+
+                        panel.hidden = !active;
+
+                    });
+
+                });
+
+            });
+
+        });
+    </script>
+
 {% endblock js %}
