@@ -277,6 +277,51 @@ def editor_or_journal_manager_required(func):
             request.journal
         ):
             return func(request, *args, **kwargs)
+
+        deny_access(request)
+
+    return wrapper
+
+
+def reviewer_pool_manager_required(func):
+    """
+    Allows Reviewer Pool management for:
+    - staff users,
+    - journal managers,
+    - editors operating under the editor active role,
+    - editors-in-chief operating under the editor-in-chief active role.
+    """
+
+    @base_check_required
+    def wrapper(request, *args, **kwargs):
+        if request.user.is_staff:
+            return func(request, *args, **kwargs)
+
+        if request.user.is_journal_manager(request.journal):
+            return func(request, *args, **kwargs)
+
+        active_role = getattr(request, "active_role_slug", None)
+
+        if (
+            active_role == "editor"
+            and request.user.has_active_role(
+                request,
+                "editor",
+                staff_override=False,
+            )
+        ):
+            return func(request, *args, **kwargs)
+
+        if (
+            active_role == "editor-in-chief"
+            and request.user.has_active_role(
+                request,
+                "editor-in-chief",
+                staff_override=False,
+            )
+        ):
+            return func(request, *args, **kwargs)
+
         deny_access(request)
 
     return wrapper

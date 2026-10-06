@@ -69,6 +69,36 @@ class TestReviewerPoolManager(TestCase):
             is_available=True,
         )
 
+        self.staff_user = helpers.create_user(
+            "reviewer-pool-staff@example.com",
+        )
+        self.staff_user.is_active = True
+        self.staff_user.is_staff = True
+        self.staff_user.save()
+
+        self.multi_role_editor = helpers.create_user(
+            "reviewer-pool-multi-editor@example.com",
+            roles=["author", "editor"],
+            journal=self.journal,
+        )
+        self.multi_role_editor.is_active = True
+        self.multi_role_editor.save()
+
+        self.editor_in_chief = helpers.create_user(
+            "reviewer-pool-editor-in-chief@example.com",
+            roles=["author", "editor-in-chief"],
+            journal=self.journal,
+        )
+        self.editor_in_chief.is_active = True
+        self.editor_in_chief.save()
+
+    def set_active_role(self, role_slug):
+        session = self.client.session
+        session["janeway_active_roles"] = {
+            str(self.journal.pk): role_slug,
+        }
+        session.save()
+
     def test_editor_can_open_reviewer_pool(self):
         self.client.force_login(self.editor)
 
@@ -379,3 +409,71 @@ class TestReviewerPoolManager(TestCase):
                 role__slug="reviewer",
             ).exists(),
         )
+
+    def test_editor_with_active_editor_role_can_open_reviewer_pool(self):
+        self.client.force_login(self.multi_role_editor)
+        self.set_active_role("editor")
+
+        response = self.client.get(
+            reverse("review_reviewer_pool"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_editor_with_active_author_role_cannot_open_reviewer_pool(self):
+        self.client.force_login(self.multi_role_editor)
+        self.set_active_role("author")
+
+        response = self.client.get(
+            reverse("review_reviewer_pool"),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_editor_in_chief_with_active_role_can_open_reviewer_pool(self):
+        self.client.force_login(self.editor_in_chief)
+        self.set_active_role("editor-in-chief")
+
+        response = self.client.get(
+            reverse("review_reviewer_pool"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_editor_in_chief_with_active_author_role_cannot_open_reviewer_pool(self):
+        self.client.force_login(self.editor_in_chief)
+        self.set_active_role("author")
+
+        response = self.client.get(
+            reverse("review_reviewer_pool"),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_author_cannot_forge_editor_in_chief_active_role(self):
+        author = helpers.create_user(
+            "reviewer-pool-author@example.com",
+            roles=["author"],
+            journal=self.journal,
+        )
+        author.is_active = True
+        author.save()
+
+        self.client.force_login(author)
+        self.set_active_role("editor-in-chief")
+
+        response = self.client.get(
+            reverse("review_reviewer_pool"),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_staff_can_open_reviewer_pool(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse("review_reviewer_pool"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reviewer Pool")
