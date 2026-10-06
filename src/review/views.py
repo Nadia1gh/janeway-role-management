@@ -35,7 +35,7 @@ from review.const import (
     ReviewerDecisions as RD,
 )
 from security.decorators import (
-    editor_or_journal_manager_required,
+    reviewer_pool_manager_required,
     editor_user_required,
     reviewer_user_required,
     reviewer_user_for_assignment_required,
@@ -2956,7 +2956,7 @@ def _reviewer_pool_return_url(request):
     return return_url
 
 
-@editor_or_journal_manager_required
+@reviewer_pool_manager_required
 def reviewer_pool(request):
     """
     Displays the reviewer pool for the current journal.
@@ -2982,7 +2982,7 @@ def reviewer_pool(request):
     return render(request, template, context)
 
 
-@editor_or_journal_manager_required
+@reviewer_pool_manager_required
 def add_reviewer_pool_member(request):
     """
     Adds an existing account to the reviewer pool for the current journal.
@@ -3046,7 +3046,7 @@ def add_reviewer_pool_member(request):
     return render(request, template, context)
 
 
-@editor_or_journal_manager_required
+@reviewer_pool_manager_required
 def edit_reviewer_pool_member(request, membership_id):
     """
     Updates a reviewer pool membership belonging to the current journal.
