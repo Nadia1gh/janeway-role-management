@@ -273,10 +273,13 @@ def editor_or_journal_manager_required(func):
 
     @base_check_required
     def wrapper(request, *args, **kwargs):
-        if request.user.is_editor(request) or request.user.is_journal_manager(
-            request.journal
+        if (
+            request.user.is_staff
+            or request.user.is_editor(request)
+            or request.user.is_journal_manager(request.journal)
         ):
             return func(request, *args, **kwargs)
+
         deny_access(request)
 
     return wrapper

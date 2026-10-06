@@ -69,6 +69,13 @@ class TestReviewerPoolManager(TestCase):
             is_available=True,
         )
 
+        self.staff_user = helpers.create_user(
+            "reviewer-pool-staff@example.com",
+        )
+        self.staff_user.is_active = True
+        self.staff_user.is_staff = True
+        self.staff_user.save()
+
     def test_editor_can_open_reviewer_pool(self):
         self.client.force_login(self.editor)
 
@@ -379,3 +386,13 @@ class TestReviewerPoolManager(TestCase):
                 role__slug="reviewer",
             ).exists(),
         )
+
+    def test_staff_can_open_reviewer_pool(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse("review_reviewer_pool"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reviewer Pool")
