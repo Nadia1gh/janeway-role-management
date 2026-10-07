@@ -85,6 +85,40 @@ class TestSecurity(TestCase):
             "Account.check_role wrongly blocks editors from accessing editor content",
         )
 
+    def test_editor_in_chief_active_role_is_editorial(self):
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        self.assertTrue(
+            self.editor_in_chief.is_editor_in_chief(request)
+        )
+        self.assertTrue(
+            self.editor_in_chief.has_senior_editor_role(request)
+        )
+        self.assertTrue(
+            self.editor_in_chief.has_an_editor_role(request)
+        )
+
+    def test_editor_in_chief_active_author_is_not_editorial(self):
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        self.assertFalse(
+            self.editor_in_chief.is_editor_in_chief(request)
+        )
+        self.assertFalse(
+            self.editor_in_chief.has_senior_editor_role(request)
+        )
+        self.assertFalse(
+            self.editor_in_chief.has_an_editor_role(request)
+        )
+
     def test_reviewer_user_required_decorator_handles_null_user(self):
         """
         Tests that the reviewer_user_required decorator can handle a null request object.
@@ -343,6 +377,34 @@ class TestSecurity(TestCase):
             "editor_user_required decorator wrongly prohibits editors from accessing content",
         )
 
+    def test_any_editor_user_required_allows_active_editor_in_chief(self):
+        func = Mock()
+        decorated_func = decorators.any_editor_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(request)
+
+        self.assertTrue(func.called)
+
+    def test_editor_user_required_allows_active_editor_in_chief(self):
+        func = Mock()
+        decorated_func = decorators.editor_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(request)
+
+        self.assertTrue(func.called)
+
     def test_editor_user_required_decorator_allows_staff(self):
         """
         Tests that the editor_user_required decorator allows staff.
@@ -443,6 +505,35 @@ class TestSecurity(TestCase):
             func.called,
             "editor_user_required decorator wrongly allows inactive users to access author content",
         )
+
+    def test_senior_editor_user_required_allows_active_editor_in_chief(self):
+        func = Mock()
+        decorated_func = decorators.senior_editor_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(request)
+
+        self.assertTrue(func.called)
+
+    def test_senior_editor_user_required_blocks_editor_in_chief_active_author(self):
+        func = Mock()
+        decorated_func = decorators.senior_editor_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(request)
+
+        self.assertFalse(func.called)
 
     # Tests for author role checks
     def test_account_is_author_role_check_blocks_non_authors(self):
@@ -4896,6 +4987,7 @@ class TestSecurity(TestCase):
         self.create_roles(
             [
                 "editor",
+                "editor-in-chief",
                 "author",
                 "reviewer",
                 "proofreader",
@@ -4944,6 +5036,14 @@ class TestSecurity(TestCase):
         )
         self.editor.is_active = True
         self.editor.save()
+
+        self.editor_in_chief = self.create_user(
+            "editorinchief@martineve.com",
+            ["author", "editor-in-chief"],
+            journal=self.journal_one,
+        )
+        self.editor_in_chief.is_active = True
+        self.editor_in_chief.save()
 
         self.author = self.create_user(
             "b.torres@voyager.com",
