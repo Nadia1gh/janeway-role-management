@@ -836,17 +836,31 @@ class Account(AbstractBaseUser, PermissionsMixin):
 
         return self.has_active_role(request, "editor")
 
+    def is_editor_in_chief(self, request):
+        """
+        Return whether the user is operating under the Editor-in-Chief
+        active role for the current journal.
+        """
+        return self.has_active_role(
+            request,
+            "editor-in-chief",
+            staff_override=False,
+        )
+
     def is_section_editor(self, request):
         return self.has_active_role(request, "section-editor")
 
+    def has_senior_editor_role(self, request):
+        """
+        Return True when the active role has journal-wide editorial authority.
+        """
+        return self.is_editor(request) or self.is_editor_in_chief(request)
+
     def has_an_editor_role(self, request):
         """
-        True only when the active role is Editor or Section Editor.
-
-        This is important for navigation such as:
-        {% is_any_editor as any_editor %}
+        Return True when the active role is any editorial role.
         """
-        return self.is_editor(request) or self.is_section_editor(request)
+        return self.has_senior_editor_role(request) or self.is_section_editor(request)
 
     def is_reviewer(self, request):
         return self.has_active_role(request, "reviewer")
