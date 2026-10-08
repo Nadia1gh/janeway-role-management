@@ -854,19 +854,13 @@ class Account(AbstractBaseUser, PermissionsMixin):
         """
         Return True when the active role has journal-wide editorial authority.
         """
-        return (
-            self.is_editor(request)
-            or self.is_editor_in_chief(request)
-        )
+        return self.is_editor(request) or self.is_editor_in_chief(request)
 
     def has_an_editor_role(self, request):
         """
         Return True when the active role is any editorial role.
         """
-        return (
-            self.has_senior_editor_role(request)
-            or self.is_section_editor(request)
-        )
+        return self.has_senior_editor_role(request) or self.is_section_editor(request)
 
     def is_reviewer(self, request):
         return self.has_active_role(request, "reviewer")

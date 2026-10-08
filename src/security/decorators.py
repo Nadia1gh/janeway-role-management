@@ -125,10 +125,7 @@ def senior_editor_user_required(func):
 
     @base_check_required
     def wrapper(request, *args, **kwargs):
-        if (
-            request.user.has_senior_editor_role(request)
-            or request.user.is_staff
-        ):
+        if request.user.has_senior_editor_role(request) or request.user.is_staff:
             return func(request, *args, **kwargs)
 
         deny_access(request)

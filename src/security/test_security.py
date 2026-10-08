@@ -92,15 +92,9 @@ class TestSecurity(TestCase):
         )
         request.active_role_slug = "editor-in-chief"
 
-        self.assertTrue(
-            self.editor_in_chief.is_editor_in_chief(request)
-        )
-        self.assertTrue(
-            self.editor_in_chief.has_senior_editor_role(request)
-        )
-        self.assertTrue(
-            self.editor_in_chief.has_an_editor_role(request)
-        )
+        self.assertTrue(self.editor_in_chief.is_editor_in_chief(request))
+        self.assertTrue(self.editor_in_chief.has_senior_editor_role(request))
+        self.assertTrue(self.editor_in_chief.has_an_editor_role(request))
 
     def test_editor_in_chief_active_author_is_not_editorial(self):
         request = self.prepare_request_with_user(
@@ -109,15 +103,9 @@ class TestSecurity(TestCase):
         )
         request.active_role_slug = "author"
 
-        self.assertFalse(
-            self.editor_in_chief.is_editor_in_chief(request)
-        )
-        self.assertFalse(
-            self.editor_in_chief.has_senior_editor_role(request)
-        )
-        self.assertFalse(
-            self.editor_in_chief.has_an_editor_role(request)
-        )
+        self.assertFalse(self.editor_in_chief.is_editor_in_chief(request))
+        self.assertFalse(self.editor_in_chief.has_senior_editor_role(request))
+        self.assertFalse(self.editor_in_chief.has_an_editor_role(request))
 
     def test_reviewer_user_required_decorator_handles_null_user(self):
         """
