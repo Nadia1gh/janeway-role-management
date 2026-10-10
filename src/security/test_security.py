@@ -125,6 +125,94 @@ class TestSecurity(TestCase):
             "reviewer_user_required decorator incorrectly handles request.user=None",
         )
 
+    def test_editor_or_manager_isolates_editor_in_chief_between_journals(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_manager(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(request)
+
+        self.assertFalse(func.called)
+
+    def test_editor_or_journal_manager_isolates_editor_in_chief_between_journals(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_journal_manager_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(request)
+
+        self.assertFalse(func.called)
+
+    def test_editor_or_manager_allows_active_editor_in_chief(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_manager(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(request)
+
+        self.assertTrue(func.called)
+
+    def test_editor_or_manager_blocks_editor_in_chief_active_author(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_manager(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(request)
+
+        self.assertFalse(func.called)
+
+    def test_editor_or_journal_manager_allows_active_editor_in_chief(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_journal_manager_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(request)
+
+        self.assertTrue(func.called)
+
+    def test_editor_or_journal_manager_blocks_editor_in_chief_active_author(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_journal_manager_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(request)
+
+        self.assertFalse(func.called)
+
     def test_reviewer_user_required_decorator_blocks_anonymous_users(self):
         """
         Tests that the internal Account.is_editor function blocks anonymous users.
@@ -143,6 +231,53 @@ class TestSecurity(TestCase):
             func.called,
             "reviewer_user_required decorator wrongly allows anonymous users to access editor content",
         )
+
+    def test_production_editor_decorators_allow_active_editor_in_chief(self):
+        production_editor_decorators = (
+            decorators.production_manager_roles,
+            decorators.production_user_or_editor_required,
+            decorators.typesetting_user_or_production_user_or_editor_required,
+            decorators.typesetter_or_editor_required,
+        )
+
+        for decorator in production_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_one,
+                )
+                request.active_role_slug = "editor-in-chief"
+
+                decorated_func(request)
+
+                self.assertTrue(func.called)
+
+    def test_production_editor_decorators_block_editor_in_chief_active_author(self):
+        production_editor_decorators = (
+            decorators.production_manager_roles,
+            decorators.production_user_or_editor_required,
+            decorators.typesetting_user_or_production_user_or_editor_required,
+            decorators.typesetter_or_editor_required,
+        )
+
+        for decorator in production_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_one,
+                )
+                request.active_role_slug = "author"
+
+                with self.assertRaises(PermissionDenied):
+                    decorated_func(request)
+
+                self.assertFalse(func.called)
 
     def test_reviewer_user_required_decorator_blocks_non_reviewers(self):
         """
@@ -1162,7 +1297,7 @@ class TestSecurity(TestCase):
         """
 
         func = Mock()
-        decorated_func = decorators.editor_user_required(func)
+        decorated_func = decorators.production_user_or_editor_required(func)
 
         request = self.prepare_request_with_user(self.production, self.journal_two)
 

@@ -144,7 +144,7 @@ def editor_or_manager(func):
             return func(request, *args, **kwargs)
 
         if request.journal and (
-            request.user.is_editor(request)
+            request.user.has_senior_editor_role(request)
             or request.user.is_journal_manager(request.journal)
         ):
             return func(request, *args, **kwargs)
@@ -167,7 +167,7 @@ def production_manager_roles(func):
     @base_check_required
     def wrapper(request, *args, **kwargs):
         if (
-            request.user.is_editor(request)
+            request.user.has_senior_editor_role(request)
             or request.user.is_section_editor(request)
             or request.user.is_production(request)
         ):
@@ -270,9 +270,9 @@ def editor_or_journal_manager_required(func):
 
     @base_check_required
     def wrapper(request, *args, **kwargs):
-        if request.user.is_editor(request) or request.user.is_journal_manager(
-            request.journal
-        ):
+        if request.user.has_senior_editor_role(
+            request
+        ) or request.user.is_journal_manager(request.journal):
             return func(request, *args, **kwargs)
 
         deny_access(request)
@@ -553,7 +553,7 @@ def typesetting_user_or_production_user_or_editor_required(func):
         if (
             request.user.is_typesetter(request)
             or request.user.is_production(request)
-            or request.user.is_editor(request)
+            or request.user.has_senior_editor_role(request)
             or request.user.is_staff
         ):
             return func(request, *args, **kwargs)
@@ -593,7 +593,7 @@ def production_user_or_editor_required(func):
 
         if (
             request.user.is_production(request)
-            or request.user.is_editor(request)
+            or request.user.has_senior_editor_role(request)
             or request.user.is_staff
         ):
             return func(request, *args, **kwargs)
@@ -1172,7 +1172,7 @@ def typesetter_or_editor_required(func):
         article_id = kwargs.get("article_id", None)
         typeset_id = kwargs.get("typeset_id", None)
 
-        if request.user.is_editor(request) or request.user.is_staff:
+        if request.user.has_senior_editor_role(request) or request.user.is_staff:
             return func(request, *args, **kwargs)
 
         if typeset_id:
