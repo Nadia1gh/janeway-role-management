@@ -189,7 +189,7 @@ def proofing_manager_roles(func):
     @base_check_required
     def wrapper(request, *args, **kwargs):
         if (
-            request.user.is_editor(request)
+            request.user.has_senior_editor_role(request)
             or request.user.is_section_editor(request)
             or request.user.is_proofing_manager(request)
         ):
@@ -1214,7 +1214,7 @@ def proofing_manager_or_editor_required(func):
         article_id = kwargs.get("article_id", None)
 
         if (
-            request.user.is_editor(request)
+            request.user.has_senior_editor_role(request)
             or request.user.is_staff
             or request.user.is_proofing_manager(request)
         ):
@@ -1242,12 +1242,16 @@ def proofing_manager_for_article_required(func):
 
     @base_check_required
     def wrapper(request, *args, **kwargs):
-        article = get_object_or_404(models.Article, pk=kwargs["article_id"])
+        article = get_object_or_404(
+            models.Article,
+            pk=kwargs["article_id"],
+            journal=request.journal,
+        )
 
         if not hasattr(article, "proofingassignment"):
             return redirect(reverse("proofing_list"))
 
-        if request.user.is_editor(request) or request.user.is_staff:
+        if request.user.has_senior_editor_role(request) or request.user.is_staff:
             return func(request, *args, **kwargs)
 
         if request.user in article.section_editors():
@@ -1305,7 +1309,7 @@ def proofreader_for_article_required(func):
         else:
             article = None
 
-        if request.user.is_editor(request) or request.user.is_staff:
+        if request.user.has_senior_editor_role(request) or request.user.is_staff:
             return func(request, *args, **kwargs)
 
         # proofing manager
@@ -1337,7 +1341,7 @@ def typesetter_for_corrections_required(func):
 
     @base_check_required
     def wrapper(request, *args, **kwargs):
-        if request.user.is_editor(request) or request.user.is_staff:
+        if request.user.has_senior_editor_role(request) or request.user.is_staff:
             return func(request, *args, **kwargs)
 
         try:

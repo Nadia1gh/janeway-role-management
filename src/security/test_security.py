@@ -279,6 +279,103 @@ class TestSecurity(TestCase):
 
                 self.assertFalse(func.called)
 
+    def test_proofing_editor_decorators_allow_active_editor_in_chief(self):
+        proofing_editor_decorators = (
+            (decorators.proofing_manager_roles, {}),
+            (decorators.proofing_manager_or_editor_required, {}),
+            (
+                decorators.proofing_manager_for_article_required,
+                {"article_id": self.article_proofing.pk},
+            ),
+            (
+                decorators.proofreader_for_article_required,
+                {"proofing_task_id": self.proofing_task.pk},
+            ),
+            (
+                decorators.typesetter_for_corrections_required,
+                {"typeset_task_id": self.correction_task.pk},
+            ),
+        )
+
+        for decorator, kwargs in proofing_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_one,
+                )
+                request.active_role_slug = "editor-in-chief"
+
+                decorated_func(request, **kwargs)
+
+                self.assertTrue(func.called)
+
+    def test_proofing_editor_decorators_block_editor_in_chief_active_author(self):
+        proofing_editor_decorators = (
+            (decorators.proofing_manager_roles, {}),
+            (decorators.proofing_manager_or_editor_required, {}),
+            (
+                decorators.proofing_manager_for_article_required,
+                {"article_id": self.article_proofing.pk},
+            ),
+            (
+                decorators.proofreader_for_article_required,
+                {"proofing_task_id": self.proofing_task.pk},
+            ),
+            (
+                decorators.typesetter_for_corrections_required,
+                {"typeset_task_id": self.correction_task.pk},
+            ),
+        )
+
+        for decorator, kwargs in proofing_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_one,
+                )
+                request.active_role_slug = "author"
+
+                with self.assertRaises(PermissionDenied):
+                    decorated_func(request, **kwargs)
+
+                self.assertFalse(func.called)
+
+    def test_proofing_editor_decorators_isolate_editor_in_chief_between_journals(self):
+        proofing_editor_decorators = (
+            (decorators.proofing_manager_roles, {}),
+            (decorators.proofing_manager_or_editor_required, {}),
+            (
+                decorators.proofreader_for_article_required,
+                {"proofing_task_id": self.proofing_task.pk},
+            ),
+            (
+                decorators.typesetter_for_corrections_required,
+                {"typeset_task_id": self.correction_task.pk},
+            ),
+        )
+
+        for decorator, kwargs in proofing_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_two,
+                )
+                request.active_role_slug = "editor-in-chief"
+
+                with self.assertRaises(PermissionDenied):
+                    decorated_func(request, **kwargs)
+
+                self.assertFalse(func.called)
+
     def test_reviewer_user_required_decorator_blocks_non_reviewers(self):
         """
         Tests that the reviewer_user_required decorator blocks non-reviewers.
@@ -3723,6 +3820,32 @@ class TestSecurity(TestCase):
             func.called,
             "proofing_manager_for_article_required, wrongly prohibits manager or editor from content",
         )
+
+    def test_proofing_manager_for_article_required_isolates_journals(self):
+        other_journal_editor = self.create_user(
+            "proofing-cross-journal-editor@martineve.com",
+            ["editor"],
+            journal=self.journal_two,
+        )
+        other_journal_editor.is_active = True
+        other_journal_editor.save()
+
+        func = Mock()
+        decorated_func = decorators.proofing_manager_for_article_required(func)
+
+        request = self.prepare_request_with_user(
+            other_journal_editor,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor"
+
+        with self.assertRaises(Http404):
+            decorated_func(
+                request,
+                article_id=self.article_proofing.pk,
+            )
+
+        self.assertFalse(func.called)
 
     def test_proofing_manager_for_article_required_without_manager(self):
         func = Mock()
