@@ -1,4 +1,4 @@
-﻿name: Role Management Permission Checks
+name: Role Management Permission Checks
 
 on:
   pull_request:
@@ -20,6 +20,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Prepare Janeway plugin directory
+        run: mkdir -p src/plugins
 
       - name: Set up Python
         uses: actions/setup-python@v5
