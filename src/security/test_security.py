@@ -3296,7 +3296,303 @@ class TestSecurity(TestCase):
             "file_user_required is erroneously blocking staff users access to private files",
         )
 
+    def test_file_user_required_allows_active_editor_in_chief_for_private_article_file(
+        self,
+    ):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-private.txt",
+            uuid_filename="EIC-PRIVATE.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(
+            request,
+            file_id=private_article_file.pk,
+        )
+
+        self.assertTrue(func.called)
+
+    def test_file_user_required_blocks_editor_in_chief_active_author(self):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-author-private.txt",
+            uuid_filename="EIC-AUTHOR-PRIVATE.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                file_id=private_article_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
+    def test_file_user_required_isolates_editor_in_chief_between_journals(self):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-cross-journal.txt",
+            uuid_filename="EIC-CROSS-JOURNAL.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                file_id=private_article_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
+    def test_file_user_required_isolates_private_files_between_journals(self):
+        foreign_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="foreign.txt",
+            uuid_filename="FOREIGN.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        other_journal_editor = self.create_user(
+            "file-cross-journal-editor@martineve.com",
+            ["editor"],
+            journal=self.journal_two,
+        )
+        other_journal_editor.is_active = True
+        other_journal_editor.save()
+
+        func = Mock()
+        decorated_func = decorators.file_user_required(func)
+
+        request = self.prepare_request_with_user(
+            other_journal_editor,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                file_id=foreign_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
     # Tests for file_edit_user_required
+    def test_can_edit_file_isolates_senior_editor_between_journals(self):
+        foreign_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="senior-editor-cross-journal.txt",
+            uuid_filename="SENIOR-EDITOR-CROSS-JOURNAL.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        other_journal_editor = self.create_user(
+            "can-edit-cross-journal-editor@martineve.com",
+            ["editor"],
+            journal=self.journal_two,
+        )
+        other_journal_editor.is_active = True
+        other_journal_editor.save()
+
+        request = self.prepare_request_with_user(
+            other_journal_editor,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor"
+
+        self.assertFalse(
+            decorators.can_edit_file(
+                request,
+                other_journal_editor,
+                foreign_file,
+                self.article_in_review,
+            )
+        )
+
+    def test_file_edit_user_required_allows_active_editor_in_chief(self):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-edit.txt",
+            uuid_filename="EIC-EDIT.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_edit_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(
+            request,
+            article_id=self.article_in_review.pk,
+            file_id=private_article_file.pk,
+        )
+
+        self.assertTrue(func.called)
+
+    def test_file_edit_user_required_blocks_editor_in_chief_active_author(self):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-edit-author.txt",
+            uuid_filename="EIC-EDIT-AUTHOR.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_edit_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                article_id=self.article_in_review.pk,
+                file_id=private_article_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
+    def test_file_edit_user_required_isolates_editor_in_chief_between_journals(self):
+        journal_two_article = submission_models.Article.objects.create(
+            owner=self.regular_user,
+            title="Journal Two EIC File Edit Test",
+            abstract="An abstract",
+            stage=submission_models.STAGE_UNDER_REVIEW,
+            journal_id=self.journal_two.id,
+            correspondence_author=self.regular_user,
+        )
+
+        journal_two_file = core_models.File.objects.create(
+            article_id=journal_two_article.pk,
+            mime_type="A/FILE",
+            original_filename="journal-two-eic-edit.txt",
+            uuid_filename="JOURNAL-TWO-EIC-EDIT.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_edit_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                article_id=journal_two_article.pk,
+                file_id=journal_two_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
+    def test_file_edit_user_required_blocks_cross_journal_file_mismatch(self):
+        foreign_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="foreign-edit.txt",
+            uuid_filename="FOREIGN-EDIT.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        journal_two_article = submission_models.Article.objects.create(
+            owner=self.regular_user,
+            title="Journal Two File Edit Test",
+            abstract="An abstract",
+            stage=submission_models.STAGE_UNDER_REVIEW,
+            journal_id=self.journal_two.id,
+            correspondence_author=self.regular_user,
+        )
+
+        other_journal_editor = self.create_user(
+            "file-edit-cross-journal-editor@martineve.com",
+            ["editor"],
+            journal=self.journal_two,
+        )
+        other_journal_editor.is_active = True
+        other_journal_editor.save()
+
+        func = Mock()
+        decorated_func = decorators.file_edit_user_required(func)
+
+        request = self.prepare_request_with_user(
+            other_journal_editor,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                article_id=journal_two_article.pk,
+                file_id=foreign_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
     def test_file_edit_user_required_blocks_access_to_anonymous_users(self):
         """
         Tests that an anonymous user cannot edit files
