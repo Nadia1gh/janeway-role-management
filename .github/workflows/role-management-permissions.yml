@@ -1,0 +1,72 @@
+﻿name: Role Management Permission Checks
+
+on:
+  pull_request:
+    branches:
+      - role-management
+  push:
+    branches:
+      - role-management
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  permission-regression:
+    name: Permission Regression / Python 3.11
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --src lib/ -r requirements.txt -r dev-requirements.txt
+
+      - name: Check Django configuration
+        env:
+          DB_VENDOR: sqlite
+          DB_NAME: ":memory:"
+          JANEWAY_SETTINGS_MODULE: core.janeway_global_settings
+        run: |
+          python src/manage.py check
+          python src/manage.py makemigrations --check
+
+      - name: Check focused formatting
+        run: |
+          ruff format --check src/security/logic.py src/security/test_security.py
+
+      - name: Reviewer Pool regression tests
+        env:
+          DB_VENDOR: sqlite
+          DB_NAME: ":memory:"
+          JANEWAY_SETTINGS_MODULE: core.janeway_global_settings
+        run: |
+          python src/manage.py test \
+            review.tests.test_reviewer_pool_candidates \
+            review.tests.test_reviewer_pool_manager \
+            review.tests.test_reviewer_pool_signals
+
+      - name: Security and permission regression tests
+        env:
+          DB_VENDOR: sqlite
+          DB_NAME: ":memory:"
+          JANEWAY_SETTINGS_MODULE: core.janeway_global_settings
+        run: |
+          python src/manage.py test \
+            security.test_security.TestSecurity \
+            -k editor_in_chief \
+            -k active_role \
+            -k production \
+            -k proofing \
+            -k file_user_required \
+            -k file_edit_user_required \
+            -k can_edit_file_isolates
