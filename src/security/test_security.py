@@ -125,6 +125,94 @@ class TestSecurity(TestCase):
             "reviewer_user_required decorator incorrectly handles request.user=None",
         )
 
+    def test_editor_or_manager_isolates_editor_in_chief_between_journals(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_manager(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(request)
+
+        self.assertFalse(func.called)
+
+    def test_editor_or_journal_manager_isolates_editor_in_chief_between_journals(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_journal_manager_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(request)
+
+        self.assertFalse(func.called)
+
+    def test_editor_or_manager_allows_active_editor_in_chief(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_manager(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(request)
+
+        self.assertTrue(func.called)
+
+    def test_editor_or_manager_blocks_editor_in_chief_active_author(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_manager(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(request)
+
+        self.assertFalse(func.called)
+
+    def test_editor_or_journal_manager_allows_active_editor_in_chief(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_journal_manager_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(request)
+
+        self.assertTrue(func.called)
+
+    def test_editor_or_journal_manager_blocks_editor_in_chief_active_author(self):
+        func = Mock()
+        decorated_func = decorators.editor_or_journal_manager_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(request)
+
+        self.assertFalse(func.called)
+
     def test_reviewer_user_required_decorator_blocks_anonymous_users(self):
         """
         Tests that the internal Account.is_editor function blocks anonymous users.
@@ -143,6 +231,150 @@ class TestSecurity(TestCase):
             func.called,
             "reviewer_user_required decorator wrongly allows anonymous users to access editor content",
         )
+
+    def test_production_editor_decorators_allow_active_editor_in_chief(self):
+        production_editor_decorators = (
+            decorators.production_manager_roles,
+            decorators.production_user_or_editor_required,
+            decorators.typesetting_user_or_production_user_or_editor_required,
+            decorators.typesetter_or_editor_required,
+        )
+
+        for decorator in production_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_one,
+                )
+                request.active_role_slug = "editor-in-chief"
+
+                decorated_func(request)
+
+                self.assertTrue(func.called)
+
+    def test_production_editor_decorators_block_editor_in_chief_active_author(self):
+        production_editor_decorators = (
+            decorators.production_manager_roles,
+            decorators.production_user_or_editor_required,
+            decorators.typesetting_user_or_production_user_or_editor_required,
+            decorators.typesetter_or_editor_required,
+        )
+
+        for decorator in production_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_one,
+                )
+                request.active_role_slug = "author"
+
+                with self.assertRaises(PermissionDenied):
+                    decorated_func(request)
+
+                self.assertFalse(func.called)
+
+    def test_proofing_editor_decorators_allow_active_editor_in_chief(self):
+        proofing_editor_decorators = (
+            (decorators.proofing_manager_roles, {}),
+            (decorators.proofing_manager_or_editor_required, {}),
+            (
+                decorators.proofing_manager_for_article_required,
+                {"article_id": self.article_proofing.pk},
+            ),
+            (
+                decorators.proofreader_for_article_required,
+                {"proofing_task_id": self.proofing_task.pk},
+            ),
+            (
+                decorators.typesetter_for_corrections_required,
+                {"typeset_task_id": self.correction_task.pk},
+            ),
+        )
+
+        for decorator, kwargs in proofing_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_one,
+                )
+                request.active_role_slug = "editor-in-chief"
+
+                decorated_func(request, **kwargs)
+
+                self.assertTrue(func.called)
+
+    def test_proofing_editor_decorators_block_editor_in_chief_active_author(self):
+        proofing_editor_decorators = (
+            (decorators.proofing_manager_roles, {}),
+            (decorators.proofing_manager_or_editor_required, {}),
+            (
+                decorators.proofing_manager_for_article_required,
+                {"article_id": self.article_proofing.pk},
+            ),
+            (
+                decorators.proofreader_for_article_required,
+                {"proofing_task_id": self.proofing_task.pk},
+            ),
+            (
+                decorators.typesetter_for_corrections_required,
+                {"typeset_task_id": self.correction_task.pk},
+            ),
+        )
+
+        for decorator, kwargs in proofing_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_one,
+                )
+                request.active_role_slug = "author"
+
+                with self.assertRaises(PermissionDenied):
+                    decorated_func(request, **kwargs)
+
+                self.assertFalse(func.called)
+
+    def test_proofing_editor_decorators_isolate_editor_in_chief_between_journals(self):
+        proofing_editor_decorators = (
+            (decorators.proofing_manager_roles, {}),
+            (decorators.proofing_manager_or_editor_required, {}),
+            (
+                decorators.proofreader_for_article_required,
+                {"proofing_task_id": self.proofing_task.pk},
+            ),
+            (
+                decorators.typesetter_for_corrections_required,
+                {"typeset_task_id": self.correction_task.pk},
+            ),
+        )
+
+        for decorator, kwargs in proofing_editor_decorators:
+            with self.subTest(decorator=decorator.__name__):
+                func = Mock()
+                decorated_func = decorator(func)
+
+                request = self.prepare_request_with_user(
+                    self.editor_in_chief,
+                    self.journal_two,
+                )
+                request.active_role_slug = "editor-in-chief"
+
+                with self.assertRaises(PermissionDenied):
+                    decorated_func(request, **kwargs)
+
+                self.assertFalse(func.called)
 
     def test_reviewer_user_required_decorator_blocks_non_reviewers(self):
         """
@@ -1162,7 +1394,7 @@ class TestSecurity(TestCase):
         """
 
         func = Mock()
-        decorated_func = decorators.editor_user_required(func)
+        decorated_func = decorators.production_user_or_editor_required(func)
 
         request = self.prepare_request_with_user(self.production, self.journal_two)
 
@@ -3064,7 +3296,303 @@ class TestSecurity(TestCase):
             "file_user_required is erroneously blocking staff users access to private files",
         )
 
+    def test_file_user_required_allows_active_editor_in_chief_for_private_article_file(
+        self,
+    ):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-private.txt",
+            uuid_filename="EIC-PRIVATE.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(
+            request,
+            file_id=private_article_file.pk,
+        )
+
+        self.assertTrue(func.called)
+
+    def test_file_user_required_blocks_editor_in_chief_active_author(self):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-author-private.txt",
+            uuid_filename="EIC-AUTHOR-PRIVATE.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                file_id=private_article_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
+    def test_file_user_required_isolates_editor_in_chief_between_journals(self):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-cross-journal.txt",
+            uuid_filename="EIC-CROSS-JOURNAL.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                file_id=private_article_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
+    def test_file_user_required_isolates_private_files_between_journals(self):
+        foreign_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="foreign.txt",
+            uuid_filename="FOREIGN.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        other_journal_editor = self.create_user(
+            "file-cross-journal-editor@martineve.com",
+            ["editor"],
+            journal=self.journal_two,
+        )
+        other_journal_editor.is_active = True
+        other_journal_editor.save()
+
+        func = Mock()
+        decorated_func = decorators.file_user_required(func)
+
+        request = self.prepare_request_with_user(
+            other_journal_editor,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                file_id=foreign_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
     # Tests for file_edit_user_required
+    def test_can_edit_file_isolates_senior_editor_between_journals(self):
+        foreign_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="senior-editor-cross-journal.txt",
+            uuid_filename="SENIOR-EDITOR-CROSS-JOURNAL.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        other_journal_editor = self.create_user(
+            "can-edit-cross-journal-editor@martineve.com",
+            ["editor"],
+            journal=self.journal_two,
+        )
+        other_journal_editor.is_active = True
+        other_journal_editor.save()
+
+        request = self.prepare_request_with_user(
+            other_journal_editor,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor"
+
+        self.assertFalse(
+            decorators.can_edit_file(
+                request,
+                other_journal_editor,
+                foreign_file,
+                self.article_in_review,
+            )
+        )
+
+    def test_file_edit_user_required_allows_active_editor_in_chief(self):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-edit.txt",
+            uuid_filename="EIC-EDIT.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_edit_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(
+            request,
+            article_id=self.article_in_review.pk,
+            file_id=private_article_file.pk,
+        )
+
+        self.assertTrue(func.called)
+
+    def test_file_edit_user_required_blocks_editor_in_chief_active_author(self):
+        private_article_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="eic-edit-author.txt",
+            uuid_filename="EIC-EDIT-AUTHOR.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_edit_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                article_id=self.article_in_review.pk,
+                file_id=private_article_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
+    def test_file_edit_user_required_isolates_editor_in_chief_between_journals(self):
+        journal_two_article = submission_models.Article.objects.create(
+            owner=self.regular_user,
+            title="Journal Two EIC File Edit Test",
+            abstract="An abstract",
+            stage=submission_models.STAGE_UNDER_REVIEW,
+            journal_id=self.journal_two.id,
+            correspondence_author=self.regular_user,
+        )
+
+        journal_two_file = core_models.File.objects.create(
+            article_id=journal_two_article.pk,
+            mime_type="A/FILE",
+            original_filename="journal-two-eic-edit.txt",
+            uuid_filename="JOURNAL-TWO-EIC-EDIT.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        func = Mock()
+        decorated_func = decorators.file_edit_user_required(func)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                article_id=journal_two_article.pk,
+                file_id=journal_two_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
+    def test_file_edit_user_required_blocks_cross_journal_file_mismatch(self):
+        foreign_file = core_models.File.objects.create(
+            article_id=self.article_in_review.pk,
+            mime_type="A/FILE",
+            original_filename="foreign-edit.txt",
+            uuid_filename="FOREIGN-EDIT.txt",
+            owner=self.regular_user,
+            privacy="owner",
+            is_galley=False,
+        )
+
+        journal_two_article = submission_models.Article.objects.create(
+            owner=self.regular_user,
+            title="Journal Two File Edit Test",
+            abstract="An abstract",
+            stage=submission_models.STAGE_UNDER_REVIEW,
+            journal_id=self.journal_two.id,
+            correspondence_author=self.regular_user,
+        )
+
+        other_journal_editor = self.create_user(
+            "file-edit-cross-journal-editor@martineve.com",
+            ["editor"],
+            journal=self.journal_two,
+        )
+        other_journal_editor.is_active = True
+        other_journal_editor.save()
+
+        func = Mock()
+        decorated_func = decorators.file_edit_user_required(func)
+
+        request = self.prepare_request_with_user(
+            other_journal_editor,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                article_id=journal_two_article.pk,
+                file_id=foreign_file.pk,
+            )
+
+        self.assertFalse(func.called)
+
     def test_file_edit_user_required_blocks_access_to_anonymous_users(self):
         """
         Tests that an anonymous user cannot edit files
@@ -3588,6 +4116,32 @@ class TestSecurity(TestCase):
             func.called,
             "proofing_manager_for_article_required, wrongly prohibits manager or editor from content",
         )
+
+    def test_proofing_manager_for_article_required_isolates_journals(self):
+        other_journal_editor = self.create_user(
+            "proofing-cross-journal-editor@martineve.com",
+            ["editor"],
+            journal=self.journal_two,
+        )
+        other_journal_editor.is_active = True
+        other_journal_editor.save()
+
+        func = Mock()
+        decorated_func = decorators.proofing_manager_for_article_required(func)
+
+        request = self.prepare_request_with_user(
+            other_journal_editor,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor"
+
+        with self.assertRaises(Http404):
+            decorated_func(
+                request,
+                article_id=self.article_proofing.pk,
+            )
+
+        self.assertFalse(func.called)
 
     def test_proofing_manager_for_article_required_without_manager(self):
         func = Mock()
