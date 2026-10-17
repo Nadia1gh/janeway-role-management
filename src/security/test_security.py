@@ -2588,6 +2588,75 @@ class TestSecurity(TestCase):
         )
 
     # Tests for article_stage_accepted_or_later_or_staff_required
+
+    def test_article_stage_accepted_or_later_or_staff_allows_active_editor_in_chief(
+        self,
+    ):
+        func = Mock()
+        decorated_func = decorators.article_stage_accepted_or_later_or_staff_required(
+            func
+        )
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        decorated_func(
+            request,
+            identifier_type="id",
+            identifier=self.article_in_review.pk,
+        )
+
+        self.assertTrue(func.called)
+
+    def test_article_stage_accepted_or_later_or_staff_blocks_eic_active_author(
+        self,
+    ):
+        func = Mock()
+        decorated_func = decorators.article_stage_accepted_or_later_or_staff_required(
+            func
+        )
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                identifier_type="id",
+                identifier=self.article_in_review.pk,
+            )
+
+        self.assertFalse(func.called)
+
+    def test_article_stage_accepted_or_later_or_staff_isolates_eic_between_journals(
+        self,
+    ):
+        func = Mock()
+        decorated_func = decorators.article_stage_accepted_or_later_or_staff_required(
+            func
+        )
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_two,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with self.assertRaises(PermissionDenied):
+            decorated_func(
+                request,
+                identifier_type="id",
+                identifier=self.article_in_review.pk,
+            )
+
+        self.assertFalse(func.called)
+
     def test_article_stage_accepted_or_later_or_staff_required_allows_access_to_published_articles(
         self,
     ):
@@ -3216,6 +3285,249 @@ class TestSecurity(TestCase):
         self.assertFalse(func.called)
 
     # Tests for file_user_required
+    def test_serve_article_file_allows_matching_file_for_active_eic(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_review.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            journal_views.serve_article_file(
+                request,
+                identifier_type="id",
+                identifier=self.article_in_review.pk,
+                file_id=self.private_file.pk,
+            )
+
+            mocked_serve_file.assert_called_once_with(
+                request,
+                self.private_file,
+                self.article_in_review,
+            )
+
+    def test_serve_article_file_preserves_default_carousel_fallback(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from journal import views as journal_views
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            response = journal_views.serve_article_file(
+                request,
+                identifier_type="id",
+                identifier=self.article_in_review.pk,
+                file_id="None",
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(
+            "default_carousel/carousel1.png",
+            response["Location"],
+        )
+        mocked_serve_file.assert_not_called()
+
+    def test_serve_article_file_rejects_cross_article_file_mismatch(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        self.assertNotEqual(
+            self.private_file.article_id,
+            self.article_in_review.pk,
+        )
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            with self.assertRaises(Http404):
+                journal_views.serve_article_file(
+                    request,
+                    identifier_type="id",
+                    identifier=self.article_in_review.pk,
+                    file_id=self.private_file.pk,
+                )
+
+            mocked_serve_file.assert_not_called()
+
+    def test_article_file_make_galley_allows_matching_file_for_active_eic(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_review.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+        request.GET = {"return": "/"}
+
+        with (
+            patch(
+                "core.models.File.get_file",
+                return_value=b"test content",
+            ) as mocked_get_file,
+            patch("production.logic.save_galley") as mocked_save_galley,
+        ):
+            response = journal_views.article_file_make_galley(
+                request,
+                article_id=self.article_in_review.pk,
+                file_id=self.private_file.pk,
+            )
+
+        mocked_get_file.assert_called_once_with(
+            self.article_in_review,
+            as_bytes=True,
+        )
+        mocked_save_galley.assert_called_once()
+
+        args, kwargs = mocked_save_galley.call_args
+        self.assertEqual(args[0], self.article_in_review)
+        self.assertIs(args[1], request)
+        self.assertEqual(args[2].read(), b"test content")
+        self.assertEqual(
+            args[2].name,
+            self.private_file.original_filename,
+        )
+        self.assertTrue(kwargs["is_galley"])
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/")
+
+    def test_article_file_make_galley_rejects_cross_article_file_mismatch(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+        request.GET = {"return": "/"}
+
+        self.assertNotEqual(
+            self.private_file.article_id,
+            self.article_in_review.pk,
+        )
+        self.assertTrue(self.editor_in_chief.has_senior_editor_role(request))
+
+        with (
+            patch(
+                "core.models.File.get_file",
+                return_value=b"test content",
+            ) as mocked_get_file,
+            patch("production.logic.save_galley") as mocked_save_galley,
+        ):
+            with self.assertRaises(Http404):
+                journal_views.article_file_make_galley(
+                    request,
+                    article_id=self.article_in_review.pk,
+                    file_id=self.private_file.pk,
+                )
+
+            mocked_get_file.assert_not_called()
+            mocked_save_galley.assert_not_called()
+
+    def test_editor_article_file_allows_matching_file_for_active_eic(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from review import views as review_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with patch("review.views.files.serve_file") as mocked_serve_file:
+            review_views.editor_article_file(
+                request,
+                article_id=self.article_in_production.pk,
+                file_id=self.private_file.pk,
+            )
+
+            mocked_serve_file.assert_called_once_with(
+                request,
+                self.private_file,
+                self.article_in_production,
+            )
+
+    def test_editor_article_file_rejects_cross_article_file_mismatch(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from review import views as review_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        self.assertNotEqual(
+            self.private_file.article_id,
+            self.article_in_review.pk,
+        )
+        self.assertTrue(self.editor_in_chief.has_senior_editor_role(request))
+
+        with patch("review.views.files.serve_file") as mocked_serve_file:
+            with self.assertRaises(Http404):
+                review_views.editor_article_file(
+                    request,
+                    article_id=self.article_in_review.pk,
+                    file_id=self.private_file.pk,
+                )
+
+            mocked_serve_file.assert_not_called()
+
     def test_file_user_required_blocks_access_to_anonymous_users_to_private_files(self):
         """
         Tests that an anonymous user cannot access private files
