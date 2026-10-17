@@ -853,7 +853,7 @@ def article_stage_accepted_or_later_or_staff_required(func):
         elif request.user.is_anonymous:
             deny_access(request)
         elif article_object is not None and (
-            request.user.is_editor(request) or request.user.is_staff
+            request.user.has_senior_editor_role(request) or request.user.is_staff
         ):
             return func(request, *args, **kwargs)
         elif (
