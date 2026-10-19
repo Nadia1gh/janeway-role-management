@@ -3285,6 +3285,476 @@ class TestSecurity(TestCase):
         self.assertFalse(func.called)
 
     # Tests for file_user_required
+    def test_file_history_download_allows_matching_file_for_active_eic(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from core import models as core_models
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        history = core_models.FileHistory.objects.create(
+            pk=self.private_file.pk + 100000,
+            mime_type=self.private_file.mime_type,
+            original_filename=self.private_file.original_filename,
+            uuid_filename=self.private_file.uuid_filename,
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+        self.private_file.history.add(history)
+
+        self.assertNotEqual(history.pk, self.private_file.pk)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            journal_views.serve_article_file_history(
+                request,
+                identifier_type="id",
+                identifier=self.article_in_production.pk,
+                file_id=history.pk,
+            )
+
+        mocked_serve_file.assert_called_once_with(
+            request,
+            history,
+            self.article_in_production,
+        )
+
+    def test_file_history_download_blocks_eic_active_author(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from core import models as core_models
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        history = core_models.FileHistory.objects.create(
+            mime_type=self.private_file.mime_type,
+            original_filename=self.private_file.original_filename,
+            uuid_filename=self.private_file.uuid_filename,
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+        self.private_file.history.add(history)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "author"
+
+        self.assertNotEqual(
+            self.private_file.owner,
+            self.editor_in_chief,
+        )
+        self.assertFalse(self.editor_in_chief.has_senior_editor_role(request))
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            with self.assertRaises(Http404):
+                journal_views.serve_article_file_history(
+                    request,
+                    identifier_type="id",
+                    identifier=self.article_in_production.pk,
+                    file_id=history.pk,
+                )
+
+            mocked_serve_file.assert_not_called()
+
+    def test_file_history_download_handles_multiple_files_same_article(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from core import models as core_models
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        second_file = core_models.File.objects.create(
+            article_id=self.article_in_production.pk,
+            mime_type=self.private_file.mime_type,
+            original_filename="second-file.txt",
+            uuid_filename="second-file-uuid.txt",
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+
+        history = core_models.FileHistory.objects.create(
+            mime_type=self.private_file.mime_type,
+            original_filename=self.private_file.original_filename,
+            uuid_filename=self.private_file.uuid_filename,
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+
+        self.private_file.history.add(history)
+        second_file.history.add(history)
+
+        self.assertEqual(
+            core_models.File.objects.filter(
+                history=history,
+                article_id=self.article_in_production.pk,
+            ).count(),
+            2,
+        )
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            journal_views.serve_article_file_history(
+                request,
+                identifier_type="id",
+                identifier=self.article_in_production.pk,
+                file_id=history.pk,
+            )
+
+            mocked_serve_file.assert_called_once_with(
+                request,
+                history,
+                self.article_in_production,
+            )
+
+    def test_file_history_download_rejects_mixed_file_permissions(self):
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from core import models as core_models
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        second_file = core_models.File.objects.create(
+            article_id=self.article_in_production.pk,
+            mime_type=self.private_file.mime_type,
+            original_filename="restricted-second-file.txt",
+            uuid_filename="restricted-second-file-uuid.txt",
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+
+        history = core_models.FileHistory.objects.create(
+            mime_type=self.private_file.mime_type,
+            original_filename=self.private_file.original_filename,
+            uuid_filename=self.private_file.uuid_filename,
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+
+        self.private_file.history.add(history)
+        second_file.history.add(history)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        checked_files = []
+
+        def check_permission(request, user, file_object, article_object):
+            checked_files.append(file_object.pk)
+            return file_object.pk != second_file.pk
+
+        with (
+            patch(
+                "journal.views.can_view_file_history",
+                side_effect=check_permission,
+            ),
+            patch("journal.views.files.serve_file") as mocked_serve_file,
+        ):
+            with self.assertRaises(Http404):
+                journal_views.serve_article_file_history(
+                    request,
+                    identifier_type="id",
+                    identifier=self.article_in_production.pk,
+                    file_id=history.pk,
+                )
+
+            mocked_serve_file.assert_not_called()
+
+        self.assertEqual(
+            set(checked_files),
+            {self.private_file.pk, second_file.pk},
+        )
+
+    def test_file_history_download_rejects_anonymous_user(self):
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from core import models as core_models
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        history = core_models.FileHistory.objects.create(
+            mime_type=self.private_file.mime_type,
+            original_filename=self.private_file.original_filename,
+            uuid_filename=self.private_file.uuid_filename,
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+        self.private_file.history.add(history)
+
+        request = self.prepare_request_with_user(
+            AnonymousUser(),
+            self.journal_one,
+        )
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            with self.assertRaises(Http404):
+                journal_views.serve_article_file_history(
+                    request,
+                    identifier_type="id",
+                    identifier=self.article_in_production.pk,
+                    file_id=history.pk,
+                )
+
+            mocked_serve_file.assert_not_called()
+
+    def test_file_history_download_rejects_none_file_id(self):
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from journal import views as journal_views
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            with self.assertRaises(Http404):
+                journal_views.serve_article_file_history(
+                    request,
+                    identifier_type="id",
+                    identifier=self.article_in_production.pk,
+                    file_id="None",
+                )
+
+            mocked_serve_file.assert_not_called()
+
+    def test_file_history_download_press_context_rejects_unauthorized_user(
+        self,
+    ):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from core import models as core_models
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        history = core_models.FileHistory.objects.create(
+            mime_type=self.private_file.mime_type,
+            original_filename=self.private_file.original_filename,
+            uuid_filename=self.private_file.uuid_filename,
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+        self.private_file.history.add(history)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            journal=None,
+            press=self.press,
+        )
+        request.site_type = SimpleNamespace(code="press")
+        request.active_role_slug = "author"
+
+        self.assertNotEqual(
+            self.private_file.owner,
+            request.user,
+        )
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            with self.assertRaises(Http404):
+                journal_views.serve_article_file_history(
+                    request,
+                    identifier_type="id",
+                    identifier=self.article_in_production.pk,
+                    file_id=history.pk,
+                )
+
+            mocked_serve_file.assert_not_called()
+
+    def test_file_history_download_press_context_allows_file_owner(
+        self,
+    ):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from core import models as core_models
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        history = core_models.FileHistory.objects.create(
+            mime_type=self.private_file.mime_type,
+            original_filename=self.private_file.original_filename,
+            uuid_filename=self.private_file.uuid_filename,
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+        self.private_file.history.add(history)
+
+        request = self.prepare_request_with_user(
+            self.private_file.owner,
+            journal=None,
+            press=self.press,
+        )
+        request.site_type = SimpleNamespace(code="press")
+        request.active_role_slug = "author"
+
+        self.assertIsNone(request.journal)
+        self.assertEqual(request.press, self.press)
+        self.assertEqual(request.user, self.private_file.owner)
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            journal_views.serve_article_file_history(
+                request,
+                identifier_type="id",
+                identifier=self.article_in_production.pk,
+                file_id=history.pk,
+            )
+
+            mocked_serve_file.assert_called_once_with(
+                request,
+                history,
+                self.article_in_production,
+            )
+
+    def test_file_history_download_rejects_cross_journal_for_active_eic(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from core import models as core_models
+        from journal import views as journal_views
+
+        other_article = self.article_in_production
+        other_article.journal = self.journal_two
+        other_article.save(update_fields=["journal"])
+
+        self.private_file.article_id = other_article.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        history = core_models.FileHistory.objects.create(
+            mime_type=self.private_file.mime_type,
+            original_filename=self.private_file.original_filename,
+            uuid_filename=self.private_file.uuid_filename,
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+        self.private_file.history.add(history)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        from submission import models as submission_models
+
+        self.assertNotEqual(
+            self.journal_one.pk,
+            self.journal_two.pk,
+        )
+        self.assertEqual(
+            request.journal.pk,
+            self.journal_one.pk,
+        )
+        self.assertEqual(
+            other_article.journal_id,
+            self.journal_two.pk,
+        )
+        self.assertFalse(
+            submission_models.Article.objects.filter(
+                pk=other_article.pk,
+                journal=request.journal,
+            ).exists()
+        )
+
+        self.assertEqual(other_article.journal, self.journal_two)
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            with self.assertRaises(Http404):
+                journal_views.serve_article_file_history(
+                    request,
+                    identifier_type="id",
+                    identifier=other_article.pk,
+                    file_id=history.pk,
+                )
+
+            mocked_serve_file.assert_not_called()
+
+    def test_file_history_download_rejects_cross_article_for_active_eic(
+        self,
+    ):
+        from unittest.mock import patch
+
+        from django.http import Http404
+        from core import models as core_models
+        from journal import views as journal_views
+
+        self.private_file.article_id = self.article_in_production.pk
+        self.private_file.save(update_fields=["article_id"])
+
+        history = core_models.FileHistory.objects.create(
+            pk=self.private_file.pk,
+            mime_type=self.private_file.mime_type,
+            original_filename=self.private_file.original_filename,
+            uuid_filename=self.private_file.uuid_filename,
+            owner=self.private_file.owner,
+            privacy=self.private_file.privacy,
+        )
+        self.private_file.history.add(history)
+
+        request = self.prepare_request_with_user(
+            self.editor_in_chief,
+            self.journal_one,
+        )
+        request.active_role_slug = "editor-in-chief"
+
+        self.assertNotEqual(
+            self.article_in_review.pk,
+            self.private_file.article_id,
+        )
+
+        with patch("journal.views.files.serve_file") as mocked_serve_file:
+            with self.assertRaises(Http404):
+                journal_views.serve_article_file_history(
+                    request,
+                    identifier_type="id",
+                    identifier=self.article_in_review.pk,
+                    file_id=history.pk,
+                )
+
+            mocked_serve_file.assert_not_called()
+
     def test_serve_article_file_allows_matching_file_for_active_eic(
         self,
     ):

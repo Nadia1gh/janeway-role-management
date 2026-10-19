@@ -59,6 +59,7 @@ from security.decorators import (
     keyword_page_enabled,
     production_user_or_editor_required,
 )
+from security.logic import can_view_file_history
 from submission import models as submission_models
 from utils import models as utils_models, shared, setting_handler, xml_validation
 from utils.logger import get_logger
@@ -785,19 +786,68 @@ def serve_article_file(request, identifier_type, identifier, file_id):
 
 
 @has_request
-@file_user_required
 def serve_article_file_history(
     request,
     identifier_type,
     identifier,
     file_id,
 ):
-    filehistory = get_object_or_404(core_models.FileHistory, pk=file_id)
-    # File History objects are not storing article ids, check parent's instead
-    file = filehistory.file_set.first()
-    if file:
-        return files.serve_file(request, filehistory, file.article)
-    raise Http404
+    if not request.journal and request.site_type.code == "press":
+        article_object = submission_models.Article.get_press_article(
+            request.press,
+            identifier_type,
+            identifier,
+        )
+    else:
+        article_object = submission_models.Article.get_article(
+            request.journal,
+            identifier_type,
+            identifier,
+        )
+
+    if article_object is None:
+        raise Http404
+
+    if request.journal is not None:
+        article_object = get_object_or_404(
+            submission_models.Article,
+            pk=article_object.pk,
+            journal=request.journal,
+        )
+
+    try:
+        file_history_id = int(file_id)
+    except (TypeError, ValueError):
+        raise Http404
+
+    if file_history_id <= 0:
+        raise Http404
+
+    filehistory = get_object_or_404(
+        core_models.FileHistory,
+        pk=file_history_id,
+    )
+
+    file_objects = list(
+        core_models.File.objects.filter(
+            history=filehistory,
+            article_id=article_object.pk,
+        )
+    )
+
+    if not file_objects:
+        raise Http404
+
+    for file_object in file_objects:
+        if not can_view_file_history(
+            request,
+            request.user,
+            file_object,
+            article_object,
+        ):
+            raise Http404
+
+    return files.serve_file(request, filehistory, article_object)
 
 
 @login_required
