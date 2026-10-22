@@ -1,0 +1,68 @@
+
+{% extends "core/base.html" %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}
+    {% trans "Accessibility" %}
+{% endblock title %}
+
+{% block body %}
+
+<h1>{% trans "Accessibility" %}</h1>
+
+{% include "common/elements/a11y/press.html" %}
+{% include "common/elements/a11y/janeway.html" %}
+
+<h2>{% trans "Theme Accessibility Reports" %}</h2>
+
+{% if journal_themes %}
+
+    {% for theme_name, theme_info in journal_themes.items %}
+
+        <section class="theme-accessibility-report">
+
+            <h3>
+                {{ theme_name|title }}
+                {% trans "Theme" %}
+            </h3>
+
+            {% if theme_info.has_vpat %}
+
+                {% include "common/elements/a11y/vpat.html" with vpat_data=vpat_data theme=theme_name %}
+
+            {% else %}
+
+                <p>
+                    {% trans "An accessibility conformance report (VPAT) has not yet been published for this theme." %}
+                </p>
+
+            {% endif %}
+
+        </section>
+
+    {% endfor %}
+
+{% else %}
+
+    <p>
+        {% trans "No journal theme information is currently available." %}
+    </p>
+
+{% endif %}
+
+<hr aria-hidden="true">
+
+<h3>{% trans "Report Platform Accessibility Issues" %}</h3>
+
+<p>
+    <a href="https://github.com/openlibhums/janeway/issues/new/choose"
+       target="_blank"
+       rel="noopener noreferrer">
+        {% trans "Please report Janeway accessibility issues directly to the developers." %}
+        {% include "elements/icons/link_external.html" %}
+    </a>
+</p>
+
+{% endblock body %}

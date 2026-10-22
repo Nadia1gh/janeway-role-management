@@ -1,0 +1,51 @@
+{% load i18n %}
+
+<section class="latest_articles" aria-labelledby="latest-articles-title">
+  <div class="section_header">
+    <div>
+      <span class="section_kicker">{% trans "Articles" %}</span>
+      <h2 id="latest-articles-title">{% trans "Latest Articles" %}</h2>
+    </div>
+    <a class="view_all" href="{% url 'journal_articles' %}">{% trans "View all" %}</a>
+  </div>
+
+  {% if latest_articles %}
+    <div class="latest_articles__grid">
+      {% for article in latest_articles %}
+        <article class="latest_article_card">
+          <div class="latest_article_card__meta">
+            {% if article.section %}
+              <span>{{ article.section.name }}</span>
+            {% endif %}
+            {% if article.date_published %}
+              <time datetime="{{ article.date_published|date:'c' }}">
+                {{ article.date_published|date:"F j, Y" }}
+              </time>
+            {% endif %}
+          </div>
+
+          <h3 class="latest_article_card__title">
+            <a href="{{ article.url }}">{{ article.title|safe }}</a>
+          </h3>
+
+          {% if article.abstract %}
+            <p class="latest_article_card__abstract">
+              {{ article.abstract|striptags|truncatechars:260 }}
+            </p>
+          {% endif %}
+
+          <div class="latest_article_card__footer">
+            <span class="latest_article_card__authors">{{ article.author_list }}</span>
+            <a class="latest_article_card__link" href="{{ article.url }}">
+              {% trans "Read article" %} →
+            </a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="latest_articles__empty">
+      {% trans "No published articles are available yet." %}
+    </p>
+  {% endif %}
+</section>

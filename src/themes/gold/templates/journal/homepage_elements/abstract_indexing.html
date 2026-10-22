@@ -1,0 +1,60 @@
+{% if indexings %}
+<section class="journal-indexing">
+
+    <div class="container">
+
+        <div class="journal-indexing__header">
+            <h2>
+                Abstracting & Indexing
+            </h2>
+        </div>
+
+        <div class="journal-indexing__items">
+
+            {% for indexing in indexings %}
+
+                <div class="journal-indexing__item">
+
+                    {% if indexing.image %}
+                        <div class="journal-indexing__image">
+                            <img
+                                src="{{ indexing.image.url }}"
+                                alt="{{ indexing.name }}"
+                            >
+                        </div>
+                    {% endif %}
+
+                    <div class="journal-indexing__content">
+
+                        {% if indexing.url %}
+                            <a
+                                href="{{ indexing.url }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {{ indexing.name }}
+                            </a>
+                        {% else %}
+                            <span>
+                                {{ indexing.name }}
+                            </span>
+                        {% endif %}
+
+                        {% if indexing.description %}
+                            <p>
+                                {{ indexing.description }}
+                            </p>
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+</section>
+{% endif %}

@@ -1,0 +1,90 @@
+{% load i18n %}
+
+{% with current_issue=request.journal.current_issue %}
+  {% if current_issue %}
+  <section class="current_issue" aria-labelledby="current-issue-title">
+    <div class="current_issue__inner">
+      <div class="section_header current_issue__header">
+        <div>
+          <span class="section_kicker">{% trans "Current Issue" %}</span>
+          <h2 id="current-issue-title">{{ current_issue.display_title }}</h2>
+        </div>
+        <a class="view_all" href="{{ current_issue.url }}">{% trans "View Issue" %}</a>
+      </div>
+
+      <div class="current_issue__grid">
+        <div class="current_issue__cover_wrap">
+          <a class="current_issue__cover_link" href="{{ current_issue.url }}" aria-label="{% trans 'View current issue' %}">
+            {% if current_issue.cover_image %}
+              <img class="current_issue__cover" src="{{ current_issue.cover_image.url }}" alt="{{ current_issue.display_title_a11y }}" loading="lazy">
+            {% else %}
+              <img class="current_issue__cover" src="{{ current_issue.hero_image_url }}" alt="{{ current_issue.display_title_a11y }}" loading="lazy">
+            {% endif %}
+          </a>
+        </div>
+
+        <div class="current_issue__content">
+          <div class="current_issue__meta">
+            {% if current_issue.volume %}
+              <span>{% trans "Volume" %} {{ current_issue.volume }}</span>
+            {% endif %}
+            {% if current_issue.issue and current_issue.issue != "0" %}
+              <span>{% trans "Issue" %} {{ current_issue.issue }}</span>
+            {% endif %}
+            {% if current_issue.date %}
+              <span>{{ current_issue.date|date:"F j, Y" }}</span>
+            {% endif %}
+          </div>
+
+          {% if current_issue.issue_description %}
+            <div class="current_issue__description">
+              {{ current_issue.issue_description|safe }}
+            </div>
+          {% elif current_issue.short_description %}
+            <p class="current_issue__description">{{ current_issue.short_description }}</p>
+          {% endif %}
+
+          <div class="current_issue__articles">
+            <div class="current_issue__articles_header">
+              <h3>{% trans "Articles in this issue" %}</h3>
+              <span>{{ current_issue.get_sorted_articles.count }}</span>
+            </div>
+
+            {% regroup current_issue.get_sorted_articles by section as grouped_articles %}
+            {% for section, section_articles in grouped_articles %}
+              <div class="current_issue__section">
+                <h4>{{ section.name }}</h4>
+                <div class="current_issue__article_list">
+                  {% for article in section_articles|slice:":4" %}
+                    <article class="current_issue__article">
+                      <a href="{{ article.url }}" class="current_issue__article_title">
+                        {{ article.title|safe }}
+                      </a>
+                      {% if article.frozenauthor_set.all %}
+                        <p class="current_issue__article_authors">
+                          {% for author in article.frozenauthor_set.all|slice:":3" %}
+                            {{ author.full_name }}{% if not forloop.last %}, {% endif %}
+                          {% endfor %}
+                        </p>
+                      {% endif %}
+                    </article>
+                  {% endfor %}
+                </div>
+              </div>
+            {% empty %}
+              <p class="current_issue__empty">{% trans "No published articles are available in this issue yet." %}</p>
+            {% endfor %}
+          </div>
+
+          <div class="current_issue__actions">
+            <a class="btn btn__primary_hero" href="{{ current_issue.url }}">{% trans "View all articles" %}</a>
+            {% if current_issue.doi_url %}
+              <a class="btn btn__outline" href="{{ current_issue.doi_url }}" target="_blank" rel="noopener">{% trans "Issue DOI" %}</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+{% endwith %}

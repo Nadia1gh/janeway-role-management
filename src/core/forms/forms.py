@@ -495,6 +495,10 @@ class JournalAttributeForm(JanewayTranslationModelForm, KeywordModelForm):
             "remote_view_url",
             "remote_submit_url",
             "hide_from_press",
+            "footer_brand",
+            "footer_useful_links",
+            "footer_guides",
+            "footer_contact",
         )
 
 

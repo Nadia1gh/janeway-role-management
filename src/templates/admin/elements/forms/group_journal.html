@@ -20,6 +20,18 @@
 <div class="title-area">
     <h2>Disciplines</h2>
 </div>
+<div class="title-area">
+    <h2>Journal Footer Settings</h2>
+</div>
+
+<div class="content">
+    <p>Manage the footer content displayed on your journal website.</p>
+
+    {% include "admin/elements/forms/field.html" with field=attr_form.footer_brand %}
+    {% include "admin/elements/forms/field.html" with field=attr_form.footer_useful_links %}
+    {% include "admin/elements/forms/field.html" with field=attr_form.footer_guides %}
+    {% include "admin/elements/forms/field.html" with field=attr_form.footer_contact %}
+</div>
 <div class="content">
     <p>You can add keywords to your journal which are displayed as Disciplines.</p>
     {% include "admin/elements/forms/field.html" with field=attr_form.keywords %}

@@ -1,0 +1,86 @@
+{% extends "core/base.html" %}
+{% load static i18n %}
+
+{% block body %}
+
+<div class="site_main">
+
+    <div class="container">
+
+        <h1>
+            {% trans "Abstract Indexing" %}
+        </h1>
+
+        {% if indexings %}
+
+            <div class="indexing-grid">
+
+                {% for indexing in indexings %}
+
+                    <article class="indexing-card">
+
+                        {% if indexing.image %}
+                            <div class="indexing-card-image">
+                                {% if indexing.url %}
+                                    <a
+                                        href="{{ indexing.url }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <img
+                                            src="{{ indexing.image.url }}"
+                                            alt="{{ indexing.name }}"
+                                        >
+                                    </a>
+                                {% else %}
+                                    <img
+                                        src="{{ indexing.image.url }}"
+                                        alt="{{ indexing.name }}"
+                                    >
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <div class="indexing-card-content">
+
+                            <h2>
+                                {% if indexing.url %}
+                                    <a
+                                        href="{{ indexing.url }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        {{ indexing.name }}
+                                    </a>
+                                {% else %}
+                                    {{ indexing.name }}
+                                {% endif %}
+                            </h2>
+
+                            {% if indexing.description %}
+                                <p>
+                                    {{ indexing.description }}
+                                </p>
+                            {% endif %}
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <p>
+                {% trans "No indexing information is currently available." %}
+            </p>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock body %}

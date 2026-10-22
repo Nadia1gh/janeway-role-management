@@ -1,0 +1,100 @@
+{% load i18n static %}
+
+<div class="footer-inner">
+
+    <!-- ===================== Brand ===================== -->
+
+    <div class="footer-col footer-brand">
+
+        {% if request.journal.header_image %}
+            <a
+                href="{{ request.journal.site_url }}"
+                aria-label="{{ request.journal.name }}"
+            >
+                <img
+                    class="footer-logo"
+                    src="{{ request.journal.header_image.url }}"
+                    alt="{{ request.journal.name }}"
+                >
+            </a>
+        {% else %}
+            <img
+                class="footer-logo"
+                src="{% static 'gold/imgs/journal-logo.png' %}"
+                alt="{{ request.journal.name }}"
+            >
+        {% endif %}
+
+        {% if request.journal.footer_brand %}
+            <div class="brand-content">
+                {{ request.journal.footer_brand|safe }}
+            </div>
+        {% endif %}
+
+    </div>
+
+
+    <!-- ===================== Useful Links ===================== -->
+
+    <div class="footer-col">
+
+        <h4>
+            {% trans "Useful links" %}
+        </h4>
+
+        {% if request.journal.footer_useful_links %}
+            <div class="footer-content">
+                {{ request.journal.footer_useful_links|safe }}
+            </div>
+        {% endif %}
+
+    </div>
+
+
+    <!-- ===================== Guides & Policies ===================== -->
+
+    <div class="footer-col">
+
+        <h4>
+            {% trans "Guides & Policies" %}
+        </h4>
+
+        {% if request.journal.footer_guides %}
+            <div class="footer-content">
+                {{ request.journal.footer_guides|safe }}
+            </div>
+        {% endif %}
+
+    </div>
+
+
+    <!-- ===================== Contact ===================== -->
+
+    <div class="footer-col footer-contact">
+
+        <h4>
+            {% trans "Contact" %}
+        </h4>
+
+        {% if request.journal.footer_contact %}
+            <div class="footer-content">
+                {{ request.journal.footer_contact|safe }}
+            </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+
+<!-- ===================== Footer Bottom ===================== -->
+
+<div class="footer-bottom">
+
+    <p>
+        © {% now "Y" %}
+        {{ request.journal.name }}.
+        {% trans "All rights reserved." %}
+    </p>
+
+</div>

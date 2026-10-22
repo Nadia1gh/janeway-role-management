@@ -3254,3 +3254,28 @@ class PublishedArticlesListView(FacetedArticlesListView):
 @method_decorator(editor_user_required, name="dispatch")
 class JournalUsers(core_views.BaseUserList):
     pass
+
+
+
+def abstract_indexing_public_view(request):
+    """Serve the optional Abstract Indexing plugin for journal requests."""
+    from django.http import Http404
+    from core import plugin_loader
+
+    if getattr(request, "journal", None) is None:
+        raise Http404()
+
+    if not plugin_loader.get_plugin("abstract_indexing", permissive=False):
+        raise Http404()
+
+    try:
+        from plugins.abstract_indexing.views import indexing
+    except ModuleNotFoundError as error:
+        if error.name in {
+            "plugins.abstract_indexing",
+            "plugins.abstract_indexing.views",
+        }:
+            raise Http404() from error
+        raise
+
+    return indexing(request)

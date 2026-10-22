@@ -1,0 +1,153 @@
+{% load static %}
+{% load i18n hooks press_url %}
+{% get_current_language as current_language %}
+<!DOCTYPE html>
+<html lang="{{ current_language }}" dir="ltr">
+
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="format-detection" content="telephone=no" />
+    {% if request.journal %}
+      <meta name="description" content="{{ request.journal.description }}">
+    {% endif %}
+    <title>{% block title %}{% if request.journal %}{{ request.journal.name }}{% else %}{{ request.press.name }}{% endif %}{% endblock title %}</title>
+    {% block head %}{% endblock head %}
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="{% url 'website_sitemap' %}">
+    {% if not request.journal or journal_settings.general.feeds %}
+      <link href="{% journal_url 'rss_articles' %}" type="application/atom+xml" rel="alternate"
+        title="Article Feed for Journal">
+      <link href="{% journal_url 'rss_news' %}" type="application/atom+xml" rel="alternate" title="News Feed for Journal">
+    {% endif %}
+    {% include "common/elements/favicons.html" %}
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet"
+      integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Playfair+Display:700,900" rel="stylesheet">
+    <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet"
+      integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+    <link href="{% static 'gold/css/base.css' %}" rel="stylesheet">
+    {% if request.journal and request.journal.scss_files %}
+      <link href="{% static 'gold/css/journal' %}{{ request.journal.id }}_override.css" rel="stylesheet">
+    {% endif %}
+
+    <link href="{% static 'common/css/index.css' %}" rel="stylesheet">
+    {% block css %}{% endblock %}
+    {% hook 'base_head_css' %}
+  </head>
+
+  <body>
+    {% include "common/elements/skip_to_main_content.html" %}
+    {% if request.journal %}
+      <div class="site">
+        <header class="site_header" role="banner">
+          <div class="site_header__inner">
+
+            <a class="brand" href="{{ request.journal.site_url }}" aria-label="{{ request.journal.name }} Home">
+              {% if request.journal.header_image %}
+                <img src="{{ request.journal.header_image.url }}" alt="{{ request.journal.name }}" />
+              {% else %}
+                <img src="{% static 'gold/imgs/journal-logo.png' %}" alt="{{ request.journal.name }}" />
+              {% endif %}
+            </a>
+            <nav class="main_nav" aria-label="Primary navigation">
+              <ul class="nav_list">
+                {% if request.journal.nav_home %}<li><a href="{% url 'website_index' %}">{% trans 'Home' %}</a></li>{% endif%}
+                <li><a href="#about_journal">{% trans 'About' %}</a></li>
+                {% if request.journal.nav_issues %}<li><a href="{% url 'journal_issues' %}">{% trans 'Archive' %}</a></li>{% endif %}
+                {% if journal_settings.general.enable_editorial_display %}<li><a href="{% url 'editorial_team' %}">{{ journal_settings.styling.editorial_group_page_name }}</a></li>{% endif %}
+                {% if request.journal.nav_sub %}<li><a href="{% url 'journal_submissions' %}">{% trans 'Guides &amp; Policies' %}</a></li>{% endif %}
+                {% if request.journal.nav_contact %}<li><a href="{% url 'contact' %}">{% trans 'Contact us' %}</a></li>{%endif %}
+              </ul>
+            </nav>
+            <div class="header_actions">
+              <a class="icon_btn" href="{% url 'search' %}" aria-label="{% trans 'Search' %}">
+                <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                  <rect width="30" height="30" fill="url(#pattern0_761_295)" />
+                  <defs>
+                    <pattern id="pattern0_761_295" patternContentUnits="objectBoundingBox" width="1" height="1">
+                      <use xlink:href="#image0_761_295" transform="scale(0.01)" />
+                    </pattern>
+                    <image id="image0_761_295" width="100" height="100" preserveAspectRatio="none"
+                      xlink:href="data:image/png;base64,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" />
+                  </defs>
+                </svg>
+              </a>
+              {% if request.user.is_authenticated %}<a class="btn btn__ghost" href="{% url 'core_dashboard' %}">{% trans 'Account' %}</a>{% else %}<a class="btn btn__ghost" href="{% url 'core_login' %}">{% trans 'Login / Register' %}</a>{% endif %}
+              {% if not journal_settings.general.disable_journal_submission %}<a class="btn btn__primary" href="{% url 'submission_start' %}">{% trans 'Submit Manuscript' %}</a>{% endif %}
+              <button class="menu_toggle" type="button" aria-label="{% trans 'Open menu' %}" aria-expanded="false" aria-controls="mobileDrawer"><span class="menu_toggle__bars" aria-hidden="true"></span></button>
+            </div>
+          </div>
+        </header>
+        <div class="drawer_overlay" id="drawerOverlay" aria-hidden="true"></div>
+        <aside class="mobile_drawer" id="mobileDrawer" aria-label="{% trans 'Mobile navigation' %}">
+          <header class="mobile_drawer__header">
+            <div class="mobile_drawer_log_search">
+              <span class="mobile_drawer__title">{% if request.journal.header_image %}<img
+                    src="{{ request.journal.header_image.url }}" alt="{{ request.journal.name }}">{% else %}<img
+                    src="{% static 'gold/imgs/journal-logo.png' %}" alt="{{ request.journal.name }}">{% endif %}</span>
+              <a class="icon_btn" href="{% url 'search' %}" aria-label="{% trans 'Search' %}">
+                <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  xmlns:xlink="http://www.w3.org/1999/xlink">
+                <rect width="30" height="30" fill="url(#pattern0_761_295)" />
+                <defs>
+                  <pattern id="pattern0_761_295" patternContentUnits="objectBoundingBox" width="1" height="1">
+                    <use xlink:href="#image0_761_295" transform="scale(0.01)" />
+                  </pattern>
+                  <image id="image0_761_295" width="100" height="100" preserveAspectRatio="none"
+                    xlink:href="data:image/png;base64,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" />
+                </defs>
+              </svg>
+              </a>
+            </div>
+            <button class="mobile_drawer__close" type="button" aria-label="{% trans 'Close menu' %}"
+              id="drawerClose">×</button>
+          </header>
+          <nav class="mobile_drawer__nav" aria-label="{% trans 'Mobile primary navigation' %}">
+            <ul>
+              {% if request.journal.nav_home %}<li><a href="{% url 'website_index' %}">{% trans 'Home' %}</a></li>{% endif %}
+              <li><a href="#about_journal">{% trans 'About' %}</a></li>
+              {% if request.journal.nav_issues %}<li><a href="{% url 'journal_issues' %}">{% trans 'Archive' %}</a></li>{% endif %}
+              {% if journal_settings.general.enable_editorial_display %}<li><a href="{% url 'editorial_team' %}">{{ journal_settings.styling.editorial_group_page_name }}</a></li>{% endif %}
+              {% if request.journal.nav_sub %}<li><a href="{% url 'journal_submissions' %}">{% trans 'Guides &amp; Policies' %}</a></li>{% endif %}
+              {% if request.journal.nav_contact %}<li><a href="{% url 'contact' %}">{% trans 'Contact us' %}</a></li>{% endif %}
+            </ul>
+          </nav>
+          <footer class="mobile_drawer__footer">{% if request.user.is_authenticated %}<a class="btn btn__ghost"
+                href="{% url 'core_dashboard' %}">{% trans 'Account' %}</a>{% else %}<a class="btn btn__ghost"
+                href="{% url 'core_login' %}">{% trans 'Login / Register' %}</a>{% endif %}{% if not journal_settings.general.disable_journal_submission %}<a class="btn btn__primary"
+                href="{% url 'submission_start' %}">{% trans 'Submit Manuscript' %}</a>{% endif %}</footer>
+        </aside>
+        <main id="main-content">
+          {% for message in messages %}<div class="alert alert-{{ message.tags }} alert-dismissable"><button class="close"
+                data-dismiss="alert" aria-describedby="message-{{ forloop.counter }}"><span
+                aria-hidden="true">&times;</span><span class="sr-only">{% trans 'Close message' %}</span></button><span
+                id="message-{{ forloop.counter }}">{{ message|linebreaksbr }}</span></div>{% endfor %}
+          {% block body %}{% endblock body %}
+        </main>
+        <footer class="site-footer" id="footer">{% include "core/footer.html" %}</footer>
+      </div>
+    {% else %}
+      <div class="container">
+        <header class="site-header">
+          <div id="journal-title">
+            <div class="row">{% if request.press %}<div class="col-md-2">{% if 'svg' in request.press_cover %}{% svg request.press_cover %}{% else %}<img class="img-fluid header-image top-bar-image"
+                      src="{% url 'press_cover_download' %}" alt="{{ request.press.name }}">{% endif %}</div>{% endif %}</div>
+          </div>
+          {% if request.press %}{% include "press/nav.html" %}{% endif %}
+        </header>
+        <main id="main-content">{% for message in messages %}<div class="alert alert-{{ message.tags }}">{{ message|linebreaksbr }}</div>{% endfor %}{% block press_body %}{% endblock press_body %}</main>
+        <footer class="site-footer" id="footer">{% include "elements/press_footer.html" %}</footer>
+      </div>
+    {% endif %}
+    {% include "common/elements/analytics.html" %}
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+      integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+      integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzjJ8Kq0G6Q2q0J6p6VQ1c1b1A1R1V1N1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+      integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifw" crossorigin="anonymous"></script>
+    {% block js %}{% endblock %}
+  </body>
+
+</html>

@@ -1,0 +1,102 @@
+{% extends "core/base.html" %}
+{% load static truncate i18n %}
+{% load static i18n %}
+
+{% block body %}
+  <h1 class="sr-only">{{ request.journal.name }} {% trans 'Home Page' %}</h1>
+
+  {% include "journal/homepage_elements/hero.html" %}
+  {% include "journal/homepage_elements/stats.html" %}
+  {% include "journal/homepage_elements/editor.html" %}
+  {% include "journal/homepage_elements/featured.html" %}
+  {% include "journal/homepage_elements/articles.html" %}
+<!--  {% include "journal/homepage_elements/indexing.html" %}-->
+
+<!--  <div class="site_main">-->
+<!--    {% for element in homepage_elements %}-->
+<!--      {% if element.name != 'Carousel' and element.name != 'About' and element.name != 'Featured' and element.name != 'Featured Articles' and element.name != 'Issue' and element.name != 'Current Issue' %}-->
+<!--        <div class="homepage-element-wrapper homepage-element-{{ element.name|slugify }}">-->
+<!--          {% include element.template_path %}-->
+<!--        </div>-->
+<!--      {% endif %}-->
+<!--    {% endfor %}-->
+<!--  </div>-->
+
+  <section class="indexed_section">
+    <div class="indexed_container">
+
+        <h2 class="indexed_title">
+            {% trans "Indexed In" %}
+        </h2>
+
+        {% if indexings %}
+
+            <div class="marquee">
+                <div class="mq-track">
+
+                    {% for indexing in indexings %}
+
+                        <a
+                            class="indexed_item"
+                            href="{{ indexing.url|default:'#' }}"
+                            {% if indexing.url %}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            {% endif %}
+                            aria-label="{{ indexing.name }}"
+                        >
+
+                            {% if indexing.image %}
+                                <img
+                                    src="{{ indexing.image.url }}"
+                                    alt="{{ indexing.name }}"
+                                >
+                            {% endif %}
+
+                        </a>
+
+                    {% endfor %}
+
+                </div>
+            </div>
+
+        {% endif %}
+
+    </div>
+</section>
+
+{% endblock body %}
+
+{% block js %}
+<script src="{% static 'gold/js/popup.js' %}"></script>
+<script src="{% static 'gold/js/tabs.js' %}"></script>
+<script src="{% static 'gold/js/indexIn.js' %}"></script>
+<script src="{% static 'gold/js/bg.js' %}"></script>
+<script>
+  (function () {
+    const toggle = document.querySelector('.menu_toggle');
+    const drawer = document.getElementById('mobileDrawer');
+    const overlay = document.getElementById('drawerOverlay');
+    const close = document.getElementById('drawerClose');
+
+    if (!toggle || !drawer || !overlay || !close) return;
+
+    const setOpen = (open) => {
+      drawer.classList.toggle('is_open', open);
+      overlay.classList.toggle('is_open', open);
+      toggle.classList.toggle('is_active', open);
+      toggle.setAttribute('aria-expanded', String(open));
+      overlay.setAttribute('aria-hidden', String(!open));
+      document.body.classList.toggle('no_scroll', open);
+    };
+
+    toggle.addEventListener('click', () => setOpen(true));
+    close.addEventListener('click', () => setOpen(false));
+    overlay.addEventListener('click', () => setOpen(false));
+
+    drawer.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => setOpen(false));
+    });
+  }());
+</script>
+{% endblock js %}

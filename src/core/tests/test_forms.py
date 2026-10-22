@@ -58,3 +58,34 @@ class CoreFormTests(TestCase):
         )
         is_valid = duplicate.is_valid()
         self.assertFalse(is_valid)
+
+
+class JournalFooterFormTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.press = helpers.create_press()
+        cls.journal_one, cls.journal_two = helpers.create_journals()
+
+    def test_footer_fields_save_and_reload(self):
+        footer_values = {
+            "footer_brand": "<p>Gold Journal</p>",
+            "footer_useful_links": "<p>Useful Links</p>",
+            "footer_guides": "<p>Author Guidelines</p>",
+            "footer_contact": "<p>Contact Information</p>",
+        }
+
+        form = core_forms.JournalAttributeForm(
+            data=footer_values,
+            instance=self.journal_one,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        form.save()
+        self.journal_one.refresh_from_db()
+
+        for field_name, expected_value in footer_values.items():
+            self.assertEqual(
+                getattr(self.journal_one, field_name),
+                expected_value,
+            )

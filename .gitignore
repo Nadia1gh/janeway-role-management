@@ -81,6 +81,11 @@ src/core/settings.py
 mydatabase
 node_modules/
 src/plugins/*
+# Gold theme dependency: Abstract Indexing
+!src/plugins/abstract_indexing/
+!src/plugins/abstract_indexing/**/
+!src/plugins/abstract_indexing/**/*.py
+!src/plugins/abstract_indexing/**/*.html
 src/media/profile_images/*
 
 # PyCharm
@@ -152,3 +157,6 @@ jenkins/test-results
 jenkins/test_results
 
 src/file_editor
+
+# Gold theme
+!/src/themes/gold/

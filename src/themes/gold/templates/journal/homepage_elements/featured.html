@@ -1,0 +1,191 @@
+{% load i18n %}
+
+{% if featured_articles %}
+<section class="choice" aria-labelledby="choice-title">
+
+    <div class="section_header">
+        <h2 id="choice-title">
+            {% trans "Editor's choice" %}
+        </h2>
+    </div>
+
+
+    <div class="choice_viewport" data-choice-carousel>
+
+        <div class="choice_track">
+
+            {% for featured in featured_articles %}
+                {% with article=featured.article %}
+
+                <article
+                    class="choice_card"
+                    data-choice-slide="{{ forloop.counter0 }}"
+                    aria-hidden="{% if forloop.first %}false{% else %}true{% endif %}"
+                >
+
+                    <div class="title_date_choice">
+
+
+
+                        {% if article.date_published %}
+                            <span class="meta_date">
+                                {{ article.date_published|date:"F j, Y" }}
+                            </span>
+                        {% endif %}
+
+                    </div>
+
+                    <h3>
+                        <a
+                            class="choice_title_link"
+                            href="{{ article.url }}"
+                        >
+                            {{ article.title|safe }}
+                        </a>
+                    </h3>
+                    {% if article.author_list %}
+                        <div class="authors">
+                            {{ article.author_list }}
+                        </div>
+                    {% endif %}
+
+
+                    {% if article.abstract %}
+                        <p>
+                            {{ article.abstract|striptags|truncatechars:520 }}
+                        </p>
+                    {% endif %}
+
+
+                    <div class="choice_footer">
+
+                        {% with doi_url=article.get_doi_url %}
+
+                            {% if doi_url %}
+
+                            <div class="doi-row">
+
+                                <span
+                                    class="doi-badge"
+                                    aria-hidden="true"
+                                >
+                                    <svg
+                                        fill="#FAB70C"
+                                        role="img"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                        <title>DOI</title>
+
+                                        <path d="M24 12c0 6.633-5.367 12-12 12S0 18.633 0 12 5.367 0 12 0s12 5.367 12 12ZM7.588 6.097v4.471c-.663-.925-1.403-1.373-2.406-1.373-2.046 0-3.244 1.441-3.244 3.847 0 2.357 1.325 3.848 3.166 3.848 1.12 0 1.88-.4 2.445-1.325l-.039 1.042h2.045V6.097Zm-1.763 8.942c-1.12 0-1.802-.76-1.802-2.045 0-1.285.682-2.045 1.802-2.045 1.081 0 1.802.76 1.802 2.085 0 1.285-.672 2.045-1.802 2.045Zm12.253-1.948c0-2.172-1.578-3.789-3.906-3.789-2.328 0-3.945 1.695-3.945 3.789 0 2.133 1.578 3.789 3.945 3.789 2.289 0 3.906-1.656 3.906-3.789Zm-2.094-.01c0 1.14-.711 1.89-1.851 1.89-1.139 0-1.851-.75-1.851-1.89 0-1.139.712-1.89 1.851-1.89 1.149 0 1.861.751 1.851 1.89Zm2.6-5.795c0 .633.517 1.227 1.189 1.227 0 .633.517 1.227 1.189 1.227.633 0 1.188-.555 1.188-1.227a1.17 1.17 0 0 0-1.188-1.189c-.672 0-1.179.556-1.189 1.189Zm.166 9.341h2.055V9.604H18.75Z"/>
+                                    </svg>
+                                </span>
+
+                                <a
+                                    href="{{ doi_url }}"
+                                    class="doi-link"
+                                >
+                                    {{ doi_url }}
+                                </a>
+
+                            </div>
+
+                            {% endif %}
+
+                        {% endwith %}
+
+
+                        <div class="choice_actions">
+
+                            <a
+                                class="btn_choice btn_solid"
+                                href="{{ article.url }}"
+                            >
+                                {% trans "Read full text" %}
+                            </a>
+
+                            {% if article.abstract %}
+                                <a
+                                    class="btn_choice btn_outline"
+                                    href="{{ article.url }}#article_metadata"
+                                >
+                                    {% trans "Abstract" %}
+                                </a>
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                </article>
+
+                {% endwith %}
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+
+    {% if featured_articles|length > 1 %}
+
+    <div
+        class="carousel_nav"
+        aria-label="{% trans 'Featured article navigation' %}"
+    >
+
+        <button
+            class="nav_arrow prev"
+            type="button"
+            data-choice-prev
+            aria-label="{% trans 'Previous featured article' %}"
+            disabled
+        >
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+            >
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </button>
+
+
+<!--        <span-->
+<!--            class="choice_position"-->
+<!--            data-choice-position-->
+<!--            aria-live="polite"-->
+<!--        >-->
+<!--            1 / {{ featured_articles|length }}-->
+<!--        </span>-->
+
+
+        <button
+            class="nav_arrow next"
+            type="button"
+            data-choice-next
+            aria-label="{% trans 'Next featured article' %}"
+        >
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+            >
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+        </button>
+
+    </div>
+
+    {% endif %}
+
+</section>
+{% endif %}

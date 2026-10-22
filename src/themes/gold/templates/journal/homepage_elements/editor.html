@@ -1,0 +1,39 @@
+{% load i18n %}
+{% if editor_in_chief %}
+<section class="editor_section" aria-labelledby="editor-in-chief-title">
+  <div class="section_header">
+    <h2 id="editor-in-chief-title">{% trans 'Editor-in-Chief' %}</h2>
+    <a href="{% url 'editorial_team' %}" class="view_all">{% trans 'View All' %}</a>
+  </div>
+  <div class="editor">
+    <div class="editor_photo">
+      {% if editor_in_chief.user.profile_image %}
+        <img src="{{ editor_in_chief.user.profile_image.url }}" alt="{{ editor_in_chief.user.full_name }}" loading="lazy">
+      {% elif request.journal.default_profile_image %}
+        <img src="{{ request.journal.default_profile_image.url }}" alt="{{ editor_in_chief.user.full_name }}" loading="lazy">
+      {% endif %}
+    </div>
+    <div class="editor_info">
+      <h3>{{ editor_in_chief.user.full_name }}</h3>
+
+      {% if editor_in_chief.user.biography %} <div class="editor_biography"> {{ editor_in_chief.user.biography|safe }}</div>{% endif%}
+      {% if editor_in_chief.user.interest.all %}
+        <div class="tag_row">
+          {% for interest in editor_in_chief.user.interest.all|slice:":3" %}
+            <span class="tag">{{ interest.name }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if editor_in_chief.user.orcid %}
+        <a href="https://orcid.org/{{ editor_in_chief.user.orcid }}" class="orcid_link" target="_blank" rel="noopener">
+          <span class="orcid_badge">ID</span>
+          {% trans 'ORCID profile' %}
+        </a>
+      {% endif %}
+      {% if editor_in_chief.user.enable_public_profile %}
+        <a href="{% url 'core_public_profile' editor_in_chief.user.uuid %}" class="view_all">{% trans 'View Profile' %}</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}

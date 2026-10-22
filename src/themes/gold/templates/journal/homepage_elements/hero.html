@@ -1,0 +1,142 @@
+{% load i18n static %}
+
+{% with current_issue=issues|dictsortreversed:'date'|first %}
+
+<div class="hero_bg_area">
+
+  <canvas
+    id="bgCanvas"
+    class="bg_canvas"
+    aria-hidden="true">
+  </canvas>
+
+  <section
+    class="hero"
+    aria-labelledby="hero-title">
+
+    <div class="hero__content">
+
+      <span
+        class="badge_hero"
+        aria-label="{% trans 'Open Access' %}">
+
+        <span aria-hidden="true">
+          <svg width="17" height="19" viewBox="0 0 17 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g clip-path="url(#clip0_966_2299)">
+                                <path d="M11.7812 6.21875C14.0767 6.21875 15.9375 8.07957 15.9375 10.375V13.875C15.9375 16.1704 14.0767 18.0312 11.7812 18.0312H4.78125C2.48582 18.0312 0.625 16.1704 0.625 13.875V10.375C0.625 8.07957 2.48582 6.21875 4.78125 6.21875H11.7812ZM8.28125 10.5938C7.91881 10.5938 7.625 10.8876 7.625 11.25V13C7.625 13.3624 7.91881 13.6562 8.28125 13.6562C8.64369 13.6562 8.9375 13.3624 8.9375 13V11.25C8.9375 10.8876 8.64369 10.5938 8.28125 10.5938Z" fill="#2F3B44"/>
+                                <path d="M6.07123 2.60486C6.04206 2.63298 6.01338 2.6616 5.9852 2.6907C6.0134 2.66157 6.04208 2.63295 6.07123 2.60486C6.70063 1.99814 7.55674 1.625 8.5 1.625C8.17536 1.625 7.85039 1.67016 7.53461 1.76077C6.98297 1.91907 6.48109 2.20986 6.07123 2.60486Z" fill="#2F3B44"/>
+                                <path d="M5.9852 2.6907C6.01338 2.6616 6.04206 2.63298 6.07123 2.60486C6.04208 2.63295 6.0134 2.66157 5.9852 2.6907Z" fill="#2F3B44"/>
+                                <path d="M8.5 1.625L8.5 0.96875H8.5V1.625ZM10.8334 3.4995C11.0406 3.7969 11.4496 3.87003 11.747 3.66286C12.0444 3.45569 12.1175 3.04667 11.9103 2.74928L11.3719 3.12439L10.8334 3.4995ZM9.67197 1.82705L9.45223 2.44542L9.45223 2.44542L9.67197 1.82705ZM7.53461 1.76077L7.71562 2.39157V2.39157L7.53461 1.76077ZM5.24342 2.54254C5.01822 2.82653 5.06587 3.2393 5.34986 3.4645C5.63384 3.6897 6.04661 3.64204 6.27181 3.35806L5.75761 2.9503L5.24342 2.54254ZM5 6.875H5.65625V5.125H5H4.34375V6.875H5ZM5 5.125H5.65625C5.65625 4.3561 5.96054 3.65963 6.45668 3.14718L5.9852 2.6907L5.51372 2.23422C4.79012 2.9816 4.34375 4.00185 4.34375 5.125H5ZM5.9852 2.6907L6.45668 3.14718C6.47961 3.1235 6.50295 3.10021 6.52668 3.07733L6.07123 2.60486L5.61578 2.13239C5.58118 2.16574 5.54715 2.19969 5.51372 2.23422L5.9852 2.6907ZM6.07123 2.60486L6.52668 3.07733C7.0387 2.58376 7.73334 2.28125 8.5 2.28125V1.625V0.96875C7.38014 0.96875 6.36257 1.41251 5.61578 2.13239L6.07123 2.60486ZM11.3719 3.12439L11.9103 2.74928C11.4147 2.03774 10.7088 1.49906 9.89172 1.20868L9.67197 1.82705L9.45223 2.44542C10.0113 2.64409 10.4942 3.01266 10.8334 3.4995L11.3719 3.12439ZM9.67197 1.82705L9.89172 1.20868C9.44221 1.04894 8.97139 0.968752 8.5 0.96875L8.5 1.625L8.5 2.28125C8.82255 2.28125 9.14467 2.33612 9.45223 2.44542L9.67197 1.82705ZM8.5 1.625L8.5 0.96875C8.1145 0.968748 7.72859 1.02238 7.3536 1.12998L7.53461 1.76077L7.71562 2.39157C7.9722 2.31794 8.23623 2.28125 8.5 2.28125L8.5 1.625ZM7.53461 1.76077L7.3536 1.12998C6.69852 1.31796 6.10254 1.66328 5.61584 2.13233L6.07123 2.60486L6.52662 3.07739C6.85964 2.75644 7.26742 2.52018 7.71562 2.39157L7.53461 1.76077ZM6.07123 2.60486L5.61584 2.13233C5.58122 2.1657 5.54716 2.19968 5.51367 2.23428L5.9852 2.6907L6.45673 3.14713C6.47964 3.12346 6.50295 3.10021 6.52662 3.07739L6.07123 2.60486ZM5.9852 2.6907L5.51367 2.23428C5.41888 2.33221 5.32865 2.43506 5.24342 2.54254L5.75761 2.9503L6.27181 3.35806C6.33014 3.2845 6.39187 3.21413 6.45673 3.14713L5.9852 2.6907Z" fill="#2F3B44"/>
+                                </g>
+                                <defs>
+                                <clipPath id="clip0_966_2299">
+                                <rect width="17" height="19" rx="4" fill="white"/>
+                                </clipPath>
+                                </defs>
+                                </svg>
+        </span>
+
+        {% trans 'Open Access' %}
+
+      </span>
+
+      <h1
+        class="hero__title"
+        id="hero-title">
+        {{ request.journal.name }}
+      </h1>
+
+      <p class="hero__description">
+
+        <strong>
+          {% trans 'Aims &amp; Scope Summary:' %}
+        </strong>
+
+        {{ journal_settings.general.journal_description|striptags|truncatechars:320 }}
+
+      </p>
+
+      <div class="hero__actions">
+
+        {% if not journal_settings.general.disable_journal_submission %}
+
+          <a
+            class="btn btn__primary_hero"
+            href="{% url 'submission_start' %}">
+            {% trans 'Submit Manuscript' %}
+          </a>
+
+        {% endif %}
+
+        <a
+          class="btn btn__outline"
+          href="#about_journal">
+          {% trans 'About this journal' %}
+        </a>
+
+      </div>
+
+    </div>
+
+
+    <aside
+      class="hero__cover"
+      aria-label="{% trans 'Current issue cover' %}">
+
+      <article class="journal_cover">
+
+        {% if current_issue and current_issue.cover_image %}
+
+          <img
+            src="{{ current_issue.cover_image.url }}"
+            class="journal_cover__image"
+            alt="{{ current_issue.display_title }}"
+          >
+
+        {% elif request.journal.default_cover_image %}
+
+          <img
+            src="{{ request.journal.default_cover_image.url }}"
+            class="journal_cover__image"
+            alt="{{ request.journal.name }}"
+          >
+
+        {% endif %}
+
+      </article>
+
+
+      <p class="issn_line">
+
+        {% if request.journal.journal_issn %}
+          {% trans 'p-ISSN' %}
+          {{ request.journal.journal_issn }}
+        {% endif %}
+
+        {% if request.journal.issn %}
+          {% trans 'e-ISSN' %}
+          <a href="https://portal.issn.org/resource/ISSN/{{ request.journal.issn }}"
+             target="_blank"
+             rel="noopener noreferrer">
+            {{ request.journal.issn }}
+          </a>
+        {% endif %}
+
+      </p>
+
+
+<!--      {% if current_issue %}-->
+
+<!--        <p class="issn_line">-->
+<!--          {{ current_issue.display_title }}-->
+<!--        </p>-->
+
+<!--      {% endif %}-->
+
+    </aside>
+
+  </section>
+
+</div>
+
+{% endwith %}

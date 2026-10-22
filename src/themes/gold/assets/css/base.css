@@ -1,0 +1,11 @@
+/*
+ * Gold Theme
+ * Main CSS entry point
+ *
+ * Component stylesheets are imported separately.
+ * Import order matters for the CSS cascade.
+ */
+
+@import url("./uncertainty.css");
+@import url("./header.css");
+@import url("./journal-home.css");

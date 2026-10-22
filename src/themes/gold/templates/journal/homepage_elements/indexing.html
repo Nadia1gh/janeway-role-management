@@ -1,0 +1,89 @@
+{% load i18n %}
+
+<section class="homepage-indexing">
+
+    <div class="container">
+
+        <div class="homepage-indexing-header">
+            <h2>
+                {% trans "Abstract Indexing" %}
+            </h2>
+        </div>
+
+        {% if indexings %}
+
+            <div class="indexing-grid">
+
+                {% for indexing in indexings %}
+
+                    <article class="indexing-card">
+
+                        {% if indexing.image %}
+
+                            <div class="indexing-card-image">
+
+                                {% if indexing.url %}
+
+                                    <a
+                                        href="{{ indexing.url }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <img
+                                            src="{{ indexing.image.url }}"
+                                            alt="{{ indexing.name }}"
+                                        >
+                                    </a>
+
+                                {% else %}
+
+                                    <img
+                                        src="{{ indexing.image.url }}"
+                                        alt="{{ indexing.name }}"
+                                    >
+
+                                {% endif %}
+
+                            </div>
+
+                        {% endif %}
+
+                        <div class="indexing-card-content">
+
+                            <h3>
+                                {% if indexing.url %}
+
+                                    <a
+                                        href="{{ indexing.url }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        {{ indexing.name }}
+                                    </a>
+
+                                {% else %}
+
+                                    {{ indexing.name }}
+
+                                {% endif %}
+                            </h3>
+
+                            {% if indexing.description %}
+                                <p>
+                                    {{ indexing.description }}
+                                </p>
+                            {% endif %}
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</section>

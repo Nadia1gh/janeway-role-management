@@ -1,0 +1,14 @@
+﻿# Python cache
+__pycache__/
+*.py[cod]
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary CSS experiments
+assets/css/*-test.css
+
+# Local development files
+.DS_Store
+Thumbs.db

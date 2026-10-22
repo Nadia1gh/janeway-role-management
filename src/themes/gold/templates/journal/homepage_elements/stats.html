@@ -1,0 +1,52 @@
+{% load i18n %}
+
+<section class="stats" aria-label="{% trans 'Journal metrics' %}">
+  <ul class="stats__list">
+
+    <li class="stat">
+      <span class="stat__value">
+        {{ homepage_stats.start_publication }}
+      </span>
+      <span class="stat__label">
+        {% trans 'Start Publication' %}
+      </span>
+    </li>
+
+    <li class="stat">
+      <span class="stat__value">
+        {{ homepage_stats.issues_per_year }}
+      </span>
+      <span class="stat__label">
+        {% trans 'Issues Per Year' %}
+      </span>
+    </li>
+
+    <li class="stat">
+      <span class="stat__value">
+        {{ homepage_stats.acceptance_rate }}%
+      </span>
+      <span class="stat__label">
+        {% trans 'Acceptance Rate' %}
+      </span>
+    </li>
+
+    <li class="stat">
+      <span class="stat__value">
+        {{ homepage_stats.review_speed }}
+      </span>
+      <span class="stat__label">
+        {% trans 'Review Speed' %}
+      </span>
+    </li>
+
+    <li class="stat">
+      <span class="stat__value">
+        {{ homepage_stats.apc }}
+      </span>
+      <span class="stat__label">
+        {% trans 'APC' %}
+      </span>
+    </li>
+
+  </ul>
+</section>

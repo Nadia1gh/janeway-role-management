@@ -8,7 +8,6 @@ from django.urls import re_path
 from journal import views
 from identifiers.models import NON_DOI_IDENTIFIER_TYPES, DOI_REGEX_PATTERN
 
-from plugins.abstract_indexing import views as abstract_indexing_views
 
 
 NON_DOI_PIPE_SEPARATED_IDENTIFIERS = "|".join(NON_DOI_IDENTIFIER_TYPES)
@@ -94,7 +93,7 @@ urlpatterns = [
     ),
     re_path(
         r"^indexing/$",
-        abstract_indexing_views.indexing,
+        views.abstract_indexing_public_view,
         name="abstract_indexing",
     ),
 
