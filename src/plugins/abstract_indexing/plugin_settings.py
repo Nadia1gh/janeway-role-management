@@ -1,4 +1,3 @@
-from django.contrib.contenttypes.models import ContentType
 
 from utils import models as utils_models
 
@@ -14,47 +13,37 @@ JANEWAY_VERSION = "1.8.0"
 
 
 def install():
-    import core.models as core_models
-    import journal.models as journal_models
+    """
+    Register the Abstract Indexing plugin.
 
+    Do not create or update HomepageElement records for journals.
+    Homepage elements must be registered separately for each journal.
+    """
     plugin, created = utils_models.Plugin.objects.get_or_create(
         name=PLUGIN_NAME,
         defaults={
             "version": VERSION,
+            "enabled": True,
         },
     )
 
     plugin.display_name = DISPLAY_NAME
     plugin.version = VERSION
-    plugin.enabled = True
     plugin.homepage_element = True
+
+    # Preserve the enabled state of existing installations.
+    if created:
+        plugin.enabled = True
+
     plugin.save()
 
-    journals = journal_models.Journal.objects.all()
-
-    for journal in journals:
-        content_type = ContentType.objects.get_for_model(journal)
-
-        element, created = core_models.HomepageElement.objects.get_or_create(
-            name=DISPLAY_NAME,
-            content_type=content_type,
-            object_id=journal.pk,
-            defaults={
-                "configure_url": "abstract_indexing_config",
-                "template_path": "journal/homepage_elements/indexing.html",
-                "has_config": True,
-                "available_to_press": True,
-            },
-        )
-
-        if not created:
-            element.configure_url = "abstract_indexing_config"
-            element.template_path = "journal/homepage_elements/indexing.html"
-            element.has_config = True
-            element.save()
+    return plugin
 
 
 def hook_registry():
+    """
+    Register plugin hooks without modifying the database.
+    """
     return {
         "yield_homepage_element_context": {
             "module": "plugins.abstract_indexing.hooks",

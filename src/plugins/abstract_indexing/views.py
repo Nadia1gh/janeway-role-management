@@ -6,6 +6,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .forms import AbstractIndexingForm
 from .models import AbstractIndexing
 
+from django.contrib.contenttypes.models import ContentType
+from django.views.decorators.http import require_POST
+
 
 
 def journal_context_required(func):
@@ -38,23 +41,39 @@ def indexing(request):
     )
 
 
+
 @journal_context_required
 @editor_or_journal_manager_required
 def abstract_indexing_config(request):
+    from django.contrib.contenttypes.models import ContentType
+    from core.models import HomepageElement
+
+    journal = request.journal
+
     indexings = AbstractIndexing.objects.filter(
-        journal=request.journal,
+        journal=journal,
     ).order_by(
         "ordering",
         "name",
     )
+
+    content_type = ContentType.objects.get_for_model(journal)
+
+    homepage_registered = HomepageElement.objects.filter(
+        name="Abstract Indexing",
+        content_type=content_type,
+        object_id=journal.pk,
+    ).exists()
 
     return render(
         request,
         "abstract_indexing/indexing_settings.html",
         {
             "indexings": indexings,
+            "homepage_registered": homepage_registered,
         },
     )
+
 
 
 @journal_context_required
@@ -145,6 +164,47 @@ def abstract_indexing_delete(request, pk):
         messages.success(
             request,
             "Abstract indexing deleted successfully.",
+        )
+
+    return redirect("abstract_indexing_config")
+
+
+
+@journal_context_required
+@editor_or_journal_manager_required
+@require_POST
+def abstract_indexing_register_homepage(request):
+    """
+    Register Abstract Indexing as an available homepage element
+    for the current journal only.
+    """
+    from core.models import HomepageElement
+
+    journal = request.journal
+    content_type = ContentType.objects.get_for_model(journal)
+
+    element, created = HomepageElement.objects.get_or_create(
+        name="Abstract Indexing",
+        content_type=content_type,
+        object_id=journal.pk,
+        defaults={
+            "configure_url": "abstract_indexing_config",
+            "template_path": "journal/homepage_elements/indexing.html",
+            "has_config": True,
+            "available_to_press": False,
+            "active": False,
+        },
+    )
+
+    if created:
+        messages.success(
+            request,
+            "Abstract Indexing added to Homepage Elements.",
+        )
+    else:
+        messages.info(
+            request,
+            "Abstract Indexing is already registered for this journal.",
         )
 
     return redirect("abstract_indexing_config")

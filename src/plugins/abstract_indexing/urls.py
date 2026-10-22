@@ -15,6 +15,11 @@ urlpatterns = [
         name="abstract_indexing_add",
     ),
     re_path(
+        r"^register-homepage/$",
+        views.abstract_indexing_register_homepage,
+        name="abstract_indexing_register_homepage",
+    ),
+    re_path(
         r"^(?P<pk>\d+)/edit/$",
         views.abstract_indexing_edit,
         name="abstract_indexing_edit",

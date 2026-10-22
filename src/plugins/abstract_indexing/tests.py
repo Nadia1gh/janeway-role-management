@@ -17,7 +17,7 @@ class AbstractIndexingSecurityTests(SimpleTestCase):
 
     def test_config_redirects_anonymous_user(self):
         request = RequestFactory().get("/plugins/abstract-indexing/")
-        request.journal = object()
+        request.journal = Mock(pk=1)
         request.user = AnonymousUser()
 
         response = abstract_indexing_config(request)
@@ -27,7 +27,7 @@ class AbstractIndexingSecurityTests(SimpleTestCase):
 
     def test_config_redirects_inactive_user(self):
         request = RequestFactory().get("/plugins/abstract-indexing/")
-        request.journal = object()
+        request.journal = Mock(pk=1)
         request.user = type(
             "InactiveUser",
             (),
@@ -41,7 +41,7 @@ class AbstractIndexingSecurityTests(SimpleTestCase):
 
     def make_role_request(self, is_editor=False, is_manager=False):
         request = RequestFactory().get("/plugins/abstract-indexing/")
-        request.journal = object()
+        request.journal = Mock(pk=1)
         request.user = Mock()
         request.user.is_anonymous = False
         request.user.is_active = True
@@ -59,13 +59,43 @@ class AbstractIndexingSecurityTests(SimpleTestCase):
     def test_config_allows_editor(self):
         request = self.make_role_request(is_editor=True)
 
-        with patch("plugins.abstract_indexing.views.render", return_value=HttpResponse("OK")):
-            with patch("plugins.abstract_indexing.views.AbstractIndexing.objects.filter") as filtered:
-                filtered.return_value.order_by.return_value = []
-                response = abstract_indexing_config(request)
+        with patch(
+                "plugins.abstract_indexing.views.render",
+                return_value=HttpResponse("OK"),
+        ) as mocked_render:
+            with patch(
+                    "plugins.abstract_indexing.views.AbstractIndexing.objects.filter"
+            ) as filtered:
+                with patch(
+                        "django.contrib.contenttypes.models.ContentType.objects.get_for_model"
+                ) as get_content_type:
+                    with patch(
+                            "core.models.HomepageElement.objects.filter"
+                    ) as homepage_filter:
+                        filtered.return_value.order_by.return_value = []
+                        get_content_type.return_value = Mock(pk=10)
+                        homepage_filter.return_value.exists.return_value = False
+
+                        response = abstract_indexing_config(request)
 
         self.assertEqual(response.status_code, 200)
-        filtered.assert_called_once_with(journal=request.journal)
+
+        filtered.assert_called_once_with(
+            journal=request.journal,
+        )
+
+        get_content_type.assert_called_once_with(
+            request.journal,
+        )
+
+        homepage_filter.assert_called_once_with(
+            name="Abstract Indexing",
+            content_type=get_content_type.return_value,
+            object_id=request.journal.pk,
+        )
+
+        context = mocked_render.call_args.args[2]
+        self.assertFalse(context["homepage_registered"])
 
     def test_config_blocks_editor_of_other_journal(self):
         request = self.make_role_request()
@@ -256,6 +286,113 @@ class AbstractIndexingIntegrationTests(TestCase):
 
 
 
+    def make_register_request(self, user, journal=None, method="post"):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        factory = RequestFactory()
+        path = "/plugins/abstract-indexing/register-homepage/"
+        request = factory.post(path) if method == "post" else factory.get(path)
+        request.user = user
+        request.journal = journal if journal is not None else self.journal_one
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        return request
+
+    def test_register_homepage_only_for_current_journal(self):
+        from django.contrib.contenttypes.models import ContentType
+        from core.models import HomepageElement
+        from plugins.abstract_indexing.views import abstract_indexing_register_homepage
+
+        request = self.make_register_request(self.editor)
+        with patch(
+            "plugins.abstract_indexing.views.redirect",
+            return_value=HttpResponse(status=302),
+        ):
+            response = abstract_indexing_register_homepage(request)
+
+        content_type = ContentType.objects.get_for_model(self.journal_one)
+        element = HomepageElement.objects.get(
+            name="Abstract Indexing",
+            content_type=content_type,
+            object_id=self.journal_one.pk,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(element.active)
+        self.assertFalse(
+            HomepageElement.objects.filter(
+                name="Abstract Indexing",
+                content_type=content_type,
+                object_id=self.journal_two.pk,
+            ).exists()
+        )
+
+    def test_register_homepage_does_not_create_duplicates(self):
+        from django.contrib.contenttypes.models import ContentType
+        from core.models import HomepageElement
+        from plugins.abstract_indexing.views import abstract_indexing_register_homepage
+
+        request = self.make_register_request(self.editor)
+        with patch(
+            "plugins.abstract_indexing.views.redirect",
+            return_value=HttpResponse(status=302),
+        ):
+            abstract_indexing_register_homepage(request)
+            abstract_indexing_register_homepage(request)
+
+        self.assertEqual(
+            HomepageElement.objects.filter(
+                name="Abstract Indexing",
+                content_type=ContentType.objects.get_for_model(self.journal_one),
+                object_id=self.journal_one.pk,
+            ).count(),
+            1,
+        )
+
+    def test_register_homepage_preserves_active_state(self):
+        from django.contrib.contenttypes.models import ContentType
+        from core.models import HomepageElement
+        from plugins.abstract_indexing.views import abstract_indexing_register_homepage
+
+        element = HomepageElement.objects.create(
+            name="Abstract Indexing",
+            content_type=ContentType.objects.get_for_model(self.journal_one),
+            object_id=self.journal_one.pk,
+            configure_url="abstract_indexing_config",
+            template_path="journal/homepage_elements/indexing.html",
+            active=True,
+        )
+        request = self.make_register_request(self.editor)
+        with patch(
+            "plugins.abstract_indexing.views.redirect",
+            return_value=HttpResponse(status=302),
+        ):
+            abstract_indexing_register_homepage(request)
+
+        element.refresh_from_db()
+        self.assertTrue(element.active)
+
+    def test_register_homepage_rejects_get(self):
+        from plugins.abstract_indexing.views import abstract_indexing_register_homepage
+
+        request = self.make_register_request(self.editor, method="get")
+        response = abstract_indexing_register_homepage(request)
+        self.assertEqual(response.status_code, 405)
+
+    def test_register_homepage_blocks_author(self):
+        from plugins.abstract_indexing.views import abstract_indexing_register_homepage
+
+        request = self.make_register_request(self.author)
+        with self.assertRaises(PermissionDenied):
+            abstract_indexing_register_homepage(request)
+
+    def test_register_homepage_blocks_other_journal_editor(self):
+        from plugins.abstract_indexing.views import abstract_indexing_register_homepage
+
+        request = self.make_register_request(self.other_editor)
+        with self.assertRaises(PermissionDenied):
+            abstract_indexing_register_homepage(request)
+
+
 class AbstractIndexingPublicRoutingTests(SimpleTestCase):
 
     def setUp(self):
@@ -326,3 +463,39 @@ class AbstractIndexingPublicRoutingTests(SimpleTestCase):
             with patch("builtins.__import__", side_effect=simulate_missing_plugin):
                 with self.assertRaises(Http404):
                     abstract_indexing_public_view(request)
+
+
+class AbstractIndexingInstallationTests(TestCase):
+
+    def test_install_does_not_modify_homepage_elements(self):
+        from core.models import HomepageElement
+        from plugins.abstract_indexing.plugin_settings import install
+
+        journal_one, journal_two = helpers.create_journals()
+
+        before = list(
+            HomepageElement.objects.order_by("pk").values()
+        )
+
+        install()
+
+        after = list(
+            HomepageElement.objects.order_by("pk").values()
+        )
+
+        self.assertEqual(before, after)
+
+    def test_install_preserves_existing_disabled_state(self):
+        from plugins.abstract_indexing.plugin_settings import install
+        from utils.models import Plugin
+
+        plugin = Plugin.objects.create(
+            name="abstract_indexing",
+            version="1.0",
+            enabled=False,
+        )
+
+        install()
+
+        plugin.refresh_from_db()
+        self.assertFalse(plugin.enabled)
